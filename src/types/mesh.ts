@@ -124,7 +124,7 @@ export interface BleDeviceStatus {
   isConnected: boolean;
   isWebBleAvailable: boolean;
   deviceName: string | null;
-  mode: 'HARDWARE_BLE' | 'VIRTUAL_SIMULATOR';
+  mode: 'HARDWARE_BLE';
   rssi: number;
   batteryPct: number;
   firmwareVersion: string;

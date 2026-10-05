@@ -337,36 +337,6 @@ export const HardwareBlePanel: React.FC<HardwareBlePanelProps> = ({ bleStatus })
           </button>
         </div>
       </div>
-
-      {/* 4. SIMPLE 3-STEP GUIDE FOR REAL HARDWARE */}
-      <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-5 space-y-3">
-        <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-          Como usar com placa física em 3 passos:
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-          <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-            <span className="font-bold text-emerald-400">1. Ligar a Placa</span>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Ligue a alimentação da sua placa ESP32, TTGO T-Beam ou Heltec por USB ou bateria.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-            <span className="font-bold text-emerald-400">2. Ligar por Bluetooth</span>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Clique em <strong>"Ligar Rádio Bluetooth"</strong> acima e selecione o seu dispositivo na janela do navegador.
-            </p>
-          </div>
-
-          <div className="p-3 bg-slate-950/80 rounded-xl border border-slate-800 space-y-1">
-            <span className="font-bold text-emerald-400">3. Comunicar Off-Grid</span>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              Aceda ao chat e converse diretamente. As mensagens e áudios são transmitidos pelas ondas de rádio!
-            </p>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

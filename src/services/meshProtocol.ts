@@ -71,10 +71,40 @@ export class MeshNetworkManager {
     if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
       this.airwaveChannel = new BroadcastChannel('lora_mesh_airwaves_rf');
       this.airwaveChannel.onmessage = (event) => {
-        if (event.data && event.data.id) {
+        if (!event.data) return;
+        if (event.data.type === 'NODE_UPDATED' && event.data.node) {
+          this.handleNodeUpdatedEvent(event.data.node);
+        } else if (event.data.id && event.data.packetType !== 'NODE_ANNOUNCEMENT') {
           this.handleInboundAirwavePacket(event.data as MeshPacket);
         }
       };
+    }
+  }
+
+  private handleNodeUpdatedEvent(remoteNode: MeshNode): void {
+    if (!remoteNode || !remoteNode.id) return;
+    const selfNode = this.nodes.find((n) => n?.isSelf);
+    if (selfNode && remoteNode.id === selfNode.id) return;
+
+    const existingIdx = this.nodes.findIndex((n) => n && n.id === remoteNode.id);
+    if (existingIdx >= 0) {
+      const prev = this.nodes[existingIdx];
+      this.nodes[existingIdx] = {
+        ...prev,
+        name: remoteNode.name,
+        username: remoteNode.username || prev.username,
+        callsign: remoteNode.callsign || prev.callsign,
+        avatarColor: remoteNode.avatarColor || prev.avatarColor,
+        avatarInitials: remoteNode.avatarInitials || (remoteNode.name ? remoteNode.name.slice(0, 2).toUpperCase() : prev.avatarInitials),
+        isOnline: true,
+        lastHeard: Date.now(),
+      };
+      this.saveContactsToStorage(this.nodes);
+      this.notifyNodes();
+    } else {
+      this.nodes.push(remoteNode);
+      this.saveContactsToStorage(this.nodes);
+      this.notifyNodes();
     }
   }
 
@@ -138,13 +168,14 @@ export class MeshNetworkManager {
     };
 
     // Self Node created from profile
+    const cleanInitialName = (profile.name || 'Operador').replace(' (Você)', '').trim();
     const selfNode: MeshNode = {
       id: profile.nodeId,
-      name: `${profile.name} (Você)`,
+      name: cleanInitialName,
       username: profile.username,
       callsign: profile.callsign,
       avatarColor: '#10b981',
-      avatarInitials: profile.name.slice(0, 2).toUpperCase(),
+      avatarInitials: cleanInitialName.slice(0, 2).toUpperCase(),
       bio: profile.bio,
       statusText: 'Online no rádio LoRa',
       hardware: profile.hardware,
@@ -181,7 +212,10 @@ export class MeshNetworkManager {
     try {
       const storedPackets = localStorage.getItem(STORAGE_KEY_PACKETS);
       if (storedPackets) {
-        this.packets = JSON.parse(storedPackets);
+        const parsed = JSON.parse(storedPackets);
+        this.packets = Array.isArray(parsed)
+          ? parsed.filter((p) => p && p.packetType !== 'NODE_ANNOUNCEMENT')
+          : [];
         this.packets.forEach((p) => {
           this.seenPacketIds.add(p.id);
           if (p.timestamp > this.lastSyncedPacketTimestamp) {
@@ -197,6 +231,42 @@ export class MeshNetworkManager {
   }
 
   /**
+   * Immediately syncs self node profile to the server API so all peers see it
+   */
+  async syncSelfNodeToServer(): Promise<void> {
+    const selfNode = this.nodes.find((n) => n.isSelf);
+    if (!selfNode) return;
+    const realName = selfNode.name.replace(' (Você)', '');
+
+    try {
+      await fetch('/api/mesh/nodes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: selfNode.id,
+          name: realName,
+          username: selfNode.username,
+          callsign: selfNode.callsign,
+          avatarColor: selfNode.avatarColor || '#10b981',
+          avatarInitials: selfNode.avatarInitials || realName.slice(0, 2).toUpperCase(),
+          bio: selfNode.bio || '',
+          statusText: selfNode.statusText || 'Online no rádio LoRa',
+          hardware: selfNode.hardware,
+          role: selfNode.role,
+          batteryPct: selfNode.batteryPct || 100,
+          batteryVoltage: selfNode.batteryVoltage || 4.2,
+          gps: selfNode.gps,
+          x: selfNode.x,
+          y: selfNode.y,
+          antennaDbi: selfNode.antennaDbi || 3.0,
+        }),
+      });
+    } catch (e) {
+      // Offline fallback
+    }
+  }
+
+  /**
    * Periodically syncs with server API to discover all other real users who have the system open!
    */
   private startRealNetworkSync(): void {
@@ -204,29 +274,7 @@ export class MeshNetworkManager {
       try {
         const selfNode = this.nodes.find((n) => n.isSelf);
         if (selfNode) {
-          // Announce connection presence only without transmitting custom personal profile alterations
-          await fetch('/api/mesh/nodes', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: selfNode.id,
-              name: 'Operador LoRa',
-              username: 'operador.' + selfNode.id.slice(-4),
-              callsign: 'NÓ-' + selfNode.id.slice(-3).toUpperCase(),
-              avatarColor: selfNode.avatarColor || '#10b981',
-              avatarInitials: 'OP',
-              bio: 'Operador na rede LoRa',
-              statusText: 'Online',
-              hardware: selfNode.hardware,
-              role: selfNode.role,
-              batteryPct: selfNode.batteryPct || 100,
-              batteryVoltage: selfNode.batteryVoltage || 4.2,
-              gps: selfNode.gps,
-              x: selfNode.x,
-              y: selfNode.y,
-              antennaDbi: selfNode.antennaDbi || 3.0,
-            }),
-          });
+          await this.syncSelfNodeToServer();
         }
 
         // Fetch all real connected nodes
@@ -242,9 +290,33 @@ export class MeshNetworkManager {
 
               const existingIdx = this.nodes.findIndex((n) => n && n.id === rNode.id);
               if (existingIdx >= 0) {
-                // Update online status only - do NOT overwrite local names or contact preferences
-                this.nodes[existingIdx].isOnline = rNode.isOnline;
-                this.nodes[existingIdx].lastHeard = rNode.lastHeard;
+                const curr = this.nodes[existingIdx];
+                const nameChanged = rNode.name && rNode.name !== curr.name;
+                const usernameChanged = rNode.username && rNode.username !== curr.username;
+                const callsignChanged = rNode.callsign && rNode.callsign !== curr.callsign;
+                const bioChanged = rNode.bio !== undefined && rNode.bio !== curr.bio;
+                const colorChanged = rNode.avatarColor && rNode.avatarColor !== curr.avatarColor;
+                const onlineChanged = curr.isOnline !== rNode.isOnline;
+                const initials = rNode.avatarInitials || (rNode.name ? rNode.name.slice(0, 2).toUpperCase() : curr.avatarInitials);
+
+                if (nameChanged || usernameChanged || callsignChanged || bioChanged || colorChanged || onlineChanged) {
+                  this.nodes[existingIdx] = {
+                    ...curr,
+                    name: rNode.name || curr.name,
+                    username: rNode.username || curr.username,
+                    callsign: rNode.callsign || curr.callsign,
+                    bio: rNode.bio !== undefined ? rNode.bio : curr.bio,
+                    avatarColor: rNode.avatarColor || curr.avatarColor,
+                    avatarInitials: initials,
+                    hardware: rNode.hardware || curr.hardware,
+                    role: rNode.role || curr.role,
+                    isOnline: rNode.isOnline,
+                    lastHeard: rNode.lastHeard || Date.now(),
+                  };
+                  changed = true;
+                } else {
+                  this.nodes[existingIdx].lastHeard = rNode.lastHeard || Date.now();
+                }
               } else {
                 this.nodes.push(rNode);
                 changed = true;
@@ -269,6 +341,14 @@ export class MeshNetworkManager {
               if (!pkt || !pkt.id) return;
               if (!this.seenPacketIds.has(pkt.id)) {
                 this.seenPacketIds.add(pkt.id);
+
+                if (pkt.packetType === 'NODE_ANNOUNCEMENT') {
+                  if (pkt.payloadText) {
+                    this.handleNodeAnnouncementPayload(pkt.fromNodeId, pkt.payloadText, pkt.rssiDbm, pkt.snrDb);
+                  }
+                  return;
+                }
+
                 this.packets.push(pkt);
                 if (pkt.timestamp > this.lastSyncedPacketTimestamp) {
                   this.lastSyncedPacketTimestamp = pkt.timestamp;
@@ -312,8 +392,9 @@ export class MeshNetworkManager {
 
   getMyProfile(): UserRegistration {
     const selfNode = this.nodes.find((n) => n.isSelf) || this.nodes[0];
+    const cleanName = (selfNode.name || 'Operador').replace(' (Você)', '').trim();
     return {
-      name: selfNode.name.replace(' (Você)', ''),
+      name: cleanName,
       username: selfNode.username,
       callsign: selfNode.callsign,
       bio: selfNode.bio || '',
@@ -328,6 +409,9 @@ export class MeshNetworkManager {
   }
 
   saveMyProfile(profile: UserRegistration): void {
+    const cleanName = profile.name.replace(' (Você)', '').trim();
+    profile.name = cleanName;
+
     try {
       localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(profile));
     } catch (e) {
@@ -336,26 +420,133 @@ export class MeshNetworkManager {
 
     const selfIdx = this.nodes.findIndex((n) => n && n.isSelf);
     if (selfIdx >= 0) {
-      this.nodes[selfIdx].name = `${profile.name} (Você)`;
+      this.nodes[selfIdx].name = cleanName;
       this.nodes[selfIdx].username = profile.username;
       this.nodes[selfIdx].callsign = profile.callsign;
       this.nodes[selfIdx].bio = profile.bio;
       this.nodes[selfIdx].hardware = profile.hardware;
       this.nodes[selfIdx].role = profile.role;
-      this.nodes[selfIdx].avatarInitials = profile.name.slice(0, 2).toUpperCase();
+      this.nodes[selfIdx].avatarInitials = cleanName.slice(0, 2).toUpperCase();
     }
     this.notifyNodes();
 
-    // Stored strictly local to the user's device - NO broadcast or transmission to other users
-    bleBridge.addLog(`[PERFIL] Perfil atualizado localmente no dispositivo (não transmitido para a rede).`);
+    // Update server node registry and local airwaves without generating chat messages
+    this.syncSelfNodeToServer();
+    if (this.airwaveChannel && selfIdx >= 0) {
+      this.airwaveChannel.postMessage({
+        type: 'NODE_UPDATED',
+        node: {
+          ...this.nodes[selfIdx],
+          name: cleanName,
+        },
+      });
+    }
+    bleBridge.addLog(`[PERFIL] Perfil atualizado na rede: ${cleanName} (${profile.callsign})`);
   }
 
   /**
-   * Node Announcement is disabled to prevent broadcasting profile alterations to other users
+   * Fast, direct name change without creating an account or generating chat messages.
+   * If user enters "ana", the name is stored, broadcast and displayed exactly as "ana".
+   */
+  updateMyName(newName: string): void {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+
+    const selfIdx = this.nodes.findIndex((n) => n && n.isSelf);
+    if (selfIdx < 0) return;
+
+    const selfNode = this.nodes[selfIdx];
+    selfNode.name = trimmed; // EXACTLY "ana"
+    selfNode.username = trimmed.toLowerCase().replace(/\s+/g, '.');
+    selfNode.avatarInitials = trimmed.slice(0, 2).toUpperCase();
+
+    // Update stored profile name
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY_PROFILE);
+      if (stored) {
+        const p = JSON.parse(stored);
+        p.name = trimmed;
+        p.username = selfNode.username;
+        localStorage.setItem(STORAGE_KEY_PROFILE, JSON.stringify(p));
+      }
+    } catch (e) {
+      console.warn('Could not save updated name to localStorage:', e);
+    }
+
+    this.notifyNodes();
+
+    // 1. Immediately update server node registry (No chat packet generated)
+    this.syncSelfNodeToServer();
+
+    // 2. Broadcast via local airwaves for multi-tab without creating a message
+    if (this.airwaveChannel) {
+      this.airwaveChannel.postMessage({
+        type: 'NODE_UPDATED',
+        node: {
+          ...selfNode,
+          name: trimmed,
+        },
+      });
+    }
+
+    bleBridge.addLog(`[NOME] Nome alterado para "${trimmed}" (refletido na rede sem mensagem).`);
+  }
+
+  /**
+   * Broadcasts node identity and name changes across the mesh network
    */
   async broadcastNodeAnnouncement(): Promise<void> {
-    // Intentionally kept local-only to protect user privacy and prevent profile changes from being sent to other users
-    bleBridge.addLog(`[PRIVACIDADE] Alterações de perfil mantidas privadas no dispositivo local.`);
+    const selfNode = this.nodes.find((n) => n.isSelf);
+    if (!selfNode) return;
+    const realName = selfNode.name.replace(' (Você)', '');
+
+    const announcementPayload = JSON.stringify({
+      nodeId: selfNode.id,
+      name: realName,
+      username: selfNode.username,
+      callsign: selfNode.callsign,
+      avatarColor: selfNode.avatarColor || '#10b981',
+      avatarInitials: selfNode.avatarInitials || realName.slice(0, 2).toUpperCase(),
+      bio: selfNode.bio || '',
+      hardware: selfNode.hardware,
+      role: selfNode.role,
+      timestamp: Date.now(),
+    });
+
+    const announcementPacket: MeshPacket = {
+      id: 'ann_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+      timestamp: Date.now(),
+      fromNodeId: selfNode.id,
+      toNodeId: 'BROADCAST',
+      channelId: 0,
+      hopLimit: 3,
+      hopStart: 3,
+      packetType: 'NODE_ANNOUNCEMENT',
+      payloadText: announcementPayload,
+      encrypted: false,
+      airtimeMs: 120,
+      rssiDbm: -55,
+      snrDb: 9.0,
+      pathTraveled: [selfNode.id],
+    };
+
+    // 1. Broadcast over local airwaves (BroadcastChannel for multi-tab / local RF)
+    if (this.airwaveChannel) {
+      this.airwaveChannel.postMessage(announcementPacket);
+    }
+
+    // 2. Transmit to server packet pool so all network clients receive it
+    try {
+      await fetch('/api/mesh/packets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(announcementPacket),
+      });
+    } catch (e) {
+      // offline
+    }
+
+    bleBridge.addLog(`[ANÚNCIO] Nome e nó transmitidos na rede: ${realName} (${selfNode.callsign})`);
   }
 
   getNodes(): MeshNode[] {
@@ -507,6 +698,78 @@ export class MeshNetworkManager {
   }
 
   /**
+   * Process a node announcement payload to update or register peers
+   */
+  private handleNodeAnnouncementPayload(
+    fromNodeId: string,
+    payloadText: string,
+    rssi?: number,
+    snr?: number
+  ): void {
+    try {
+      const info = JSON.parse(payloadText);
+      const targetId = info.nodeId || fromNodeId;
+      const selfNode = this.nodes.find((n) => n?.isSelf);
+      if (selfNode && targetId === selfNode.id) return;
+
+      const existingIdx = this.nodes.findIndex((n) => n && n.id === targetId);
+      const newName = info.name || 'Operador';
+      const initials = (info.name || 'RF').slice(0, 2).toUpperCase();
+
+      if (existingIdx >= 0) {
+        const prev = this.nodes[existingIdx];
+        this.nodes[existingIdx] = {
+          ...prev,
+          name: newName,
+          username: info.username || prev.username,
+          callsign: info.callsign || prev.callsign,
+          bio: info.bio !== undefined ? info.bio : prev.bio,
+          avatarColor: info.avatarColor || prev.avatarColor || '#10b981',
+          avatarInitials: initials,
+          hardware: info.hardware || prev.hardware,
+          role: info.role || prev.role,
+          isOnline: true,
+          lastHeard: Date.now(),
+        };
+        this.saveContactsToStorage(this.nodes);
+        this.notifyNodes();
+        bleBridge.addLog(`[MESH] Nó atualizou o nome na rede: ${newName} (${this.nodes[existingIdx].callsign})`);
+      } else {
+        const newContact: MeshNode = {
+          id: targetId,
+          name: newName,
+          username: info.username || 'operador.' + targetId.slice(0, 5),
+          callsign: info.callsign || 'NÓ-RF',
+          avatarColor: info.avatarColor || '#10b981',
+          avatarInitials: initials,
+          bio: info.bio || 'Descoberto via rádio LoRa',
+          statusText: 'Online no rádio LoRa',
+          hardware: info.hardware || 'TTGO T-Beam v1.2',
+          role: info.role || 'CLIENT',
+          batteryPct: 100,
+          batteryVoltage: 4.2,
+          gps: { lat: 38.72, lng: -9.14, alt: 60 },
+          x: Math.floor(Math.random() * 60 + 20),
+          y: Math.floor(Math.random() * 60 + 20),
+          antennaDbi: 3.0,
+          isOnline: true,
+          lastHeard: Date.now(),
+          hopsAway: 1,
+          rssi: rssi || -70,
+          snr: snr || 6.5,
+          packetsForwarded: 0,
+        };
+        this.nodes.push(newContact);
+        this.saveContactsToStorage(this.nodes);
+        this.notifyNodes();
+        bleBridge.addLog(`[MESH] Novo nó descoberto na rede: ${newContact.name} (${newContact.callsign})`);
+      }
+    } catch (e) {
+      console.warn('Could not parse node announcement payload:', e);
+    }
+  }
+
+  /**
    * Handle real packet arriving over the airwaves from another node
    */
   private handleInboundAirwavePacket(packet: MeshPacket): void {
@@ -521,44 +784,9 @@ export class MeshNetworkManager {
     if (this.seenPacketIds.has(packet.id)) return;
     this.seenPacketIds.add(packet.id);
 
-    // Handle Node Announcement: registers a new real contact!
+    // Handle Node Announcement: registers a new real contact or updates name!
     if (packet.packetType === 'NODE_ANNOUNCEMENT' && packet.payloadText) {
-      try {
-        const info = JSON.parse(packet.payloadText);
-        const existing = this.nodes.find((n) => n && n.id === packet.fromNodeId);
-        if (!existing) {
-          const newContact: MeshNode = {
-            id: packet.fromNodeId,
-            name: info.name || 'Operador Descoberto',
-            username: info.username || 'operador.' + packet.fromNodeId.slice(0, 5),
-            callsign: info.callsign || 'NÓ-RF',
-            avatarColor: '#10b981',
-            avatarInitials: (info.name || 'RF').slice(0, 2).toUpperCase(),
-            bio: info.bio || 'Descoberto via rádio LoRa',
-            statusText: 'Online no rádio LoRa · A 1 salto',
-            hardware: info.hardware || 'TTGO T-Beam v1.2',
-            role: info.role || 'CLIENT',
-            batteryPct: 100,
-            batteryVoltage: 4.2,
-            gps: { lat: 38.72, lng: -9.14, alt: 60 },
-            x: Math.floor(Math.random() * 60 + 20),
-            y: Math.floor(Math.random() * 60 + 20),
-            antennaDbi: 3.0,
-            isOnline: true,
-            lastHeard: Date.now(),
-            hopsAway: 1,
-            rssi: packet.rssiDbm || -70,
-            snr: packet.snrDb || 6.5,
-            packetsForwarded: 0,
-          };
-          this.nodes.push(newContact);
-          this.saveContactsToStorage(this.nodes);
-          this.notifyNodes();
-          bleBridge.addLog(`[MESH] Novo nó descoberto nas ondas de rádio: ${newContact.name} (${newContact.callsign})`);
-        }
-      } catch (e) {
-        console.warn('Could not parse node announcement:', e);
-      }
+      this.handleNodeAnnouncementPayload(packet.fromNodeId, packet.payloadText, packet.rssiDbm, packet.snrDb);
     }
 
     // Record incoming packet
@@ -591,62 +819,8 @@ export class MeshNetworkManager {
   /**
    * Add a new custom node / contact into the mesh
    */
-  addCustomNode(params: Partial<MeshNode>): MeshNode {
-    const id = 'node-' + Math.random().toString(36).substring(2, 8);
-    const name = params.name || 'Novo Operador';
-    const newNode: MeshNode = {
-      id,
-      name,
-      username: params.username || name.toLowerCase().replace(/\s+/g, '.') + '.' + Math.floor(Math.random() * 90 + 10),
-      callsign: params.callsign || 'NÓ-' + Math.floor(Math.random() * 900 + 100),
-      avatarColor: '#10b981',
-      avatarInitials: name.slice(0, 2).toUpperCase(),
-      statusText: 'Online no rádio LoRa',
-      hardware: params.hardware || 'TTGO T-Beam v1.2',
-      role: params.role || 'CLIENT',
-      batteryPct: 100,
-      batteryVoltage: 4.2,
-      gps: { lat: 38.73, lng: -9.14, alt: 80 },
-      x: params.x || Math.floor(Math.random() * 60 + 20),
-      y: params.y || Math.floor(Math.random() * 60 + 20),
-      antennaDbi: 3.0,
-      isOnline: true,
-      lastHeard: Date.now(),
-      hopsAway: 1,
-      rssi: -65,
-      snr: 7.5,
-      packetsForwarded: 0,
-    };
-
-    this.nodes.push(newNode);
-    this.saveContactsToStorage(this.nodes);
-    this.notifyNodes();
-    bleBridge.addLog(`[MESH] Novo nó adicionado: ${newNode.name} (${newNode.callsign})`);
-    return newNode;
-  }
-
-  /**
-   * Initial clean welcome orientation message (NO fake conversations)
-   */
   private seedInitialMessages(selfId: string): void {
-    this.packets = [
-      {
-        id: 'pkt_welcome_1',
-        timestamp: Date.now() - 30000,
-        fromNodeId: 'group-broadcast',
-        toNodeId: 'BROADCAST',
-        channelId: 0,
-        hopLimit: 3,
-        hopStart: 3,
-        packetType: 'TEXT_MSG',
-        payloadText: 'Bem-vindo ao LoRa Direct. Este sistema é 100% real. Todos os operadores que abrirem esta aplicação aparecem na sua lista de conversas. Envie mensagens, grave áudio PTT ou envie o seu GPS.',
-        encrypted: false,
-        airtimeMs: 135,
-        rssiDbm: -55,
-        snrDb: 9.0,
-        pathTraveled: ['group-broadcast'],
-      },
-    ];
+    this.packets = [];
     this.savePacketsToStorage();
   }
 

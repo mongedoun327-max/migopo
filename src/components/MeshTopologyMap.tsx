@@ -31,11 +31,6 @@ export const MeshTopologyMap: React.FC<MeshTopologyMapProps> = ({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [isDraggingNodeId, setIsDraggingNodeId] = useState<string | null>(null);
   const [activeHopSteps, setActiveHopSteps] = useState<HopPropagationStep[]>([]);
-  const [showAddNodeModal, setShowAddNodeModal] = useState(false);
-  const [newNodeName, setNewNodeName] = useState('');
-  const [newNodeCallsign, setNewNodeCallsign] = useState('');
-  const [newNodeHardware, setNewNodeHardware] = useState<MeshNode['hardware']>('TTGO T-Beam v1.2');
-  const [newNodeRole, setNewNodeRole] = useState<MeshNode['role']>('CLIENT');
 
   const canvasContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -72,20 +67,6 @@ export const MeshTopologyMap: React.FC<MeshTopologyMapProps> = ({
     setIsDraggingNodeId(null);
   };
 
-  const handleCreateNode = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newNodeName.trim()) return;
-    meshManager.addCustomNode({
-      name: newNodeName,
-      callsign: newNodeCallsign || newNodeName.toUpperCase().slice(0, 8),
-      hardware: newNodeHardware,
-      role: newNodeRole,
-    });
-    setShowAddNodeModal(false);
-    setNewNodeName('');
-    setNewNodeCallsign('');
-  };
-
   // Determine line connections between nodes within radio range (distance <= 52%)
   const connections: { from: MeshNode; to: MeshNode; dist: number; quality: 'good' | 'medium' | 'weak' }[] = [];
   for (let i = 0; i < nodes.length; i++) {
@@ -118,16 +99,6 @@ export const MeshTopologyMap: React.FC<MeshTopologyMapProps> = ({
             <span className="text-xs text-slate-400 font-mono hidden sm:inline">
               · {nodes.length} Nós Ativos · {connections.length} Enlaces RF
             </span>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setShowAddNodeModal(true)}
-              className="px-3 py-1.5 text-xs font-semibold bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Adicionar Nó</span>
-            </button>
           </div>
         </div>
 
@@ -365,95 +336,6 @@ export const MeshTopologyMap: React.FC<MeshTopologyMapProps> = ({
           </div>
         )}
       </div>
-
-      {/* Add Custom Node Modal */}
-      {showAddNodeModal && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-              <h3 className="font-display font-bold text-base text-slate-100">
-                Adicionar Novo Nó à Rede Mesh
-              </h3>
-              <button
-                onClick={() => setShowAddNodeModal(false)}
-                className="text-slate-400 hover:text-slate-200"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateNode} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Nome do Nó / Unidade</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: Patrulha Vanguarda 02"
-                  value={newNodeName}
-                  onChange={(e) => setNewNodeName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-emerald-500 font-sans"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Indicativo de Chamada (Callsign)</label>
-                <input
-                  type="text"
-                  placeholder="ex: VANG-02"
-                  value={newNodeCallsign}
-                  onChange={(e) => setNewNodeCallsign(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Hardware</label>
-                  <select
-                    value={newNodeHardware}
-                    onChange={(e) => setNewNodeHardware(e.target.value as any)}
-                    className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                  >
-                    <option value="TTGO T-Beam v1.2">TTGO T-Beam v1.2</option>
-                    <option value="Heltec WiFi LoRa 32 V3">Heltec WiFi LoRa 32 V3</option>
-                    <option value="RAK4631 WisBlock">RAK4631 WisBlock</option>
-                    <option value="ESP32 DIY SX1262">ESP32 DIY SX1262</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 mb-1 font-medium">Função de Roteamento</label>
-                  <select
-                    value={newNodeRole}
-                    onChange={(e) => setNewNodeRole(e.target.value as any)}
-                    className="w-full px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 focus:outline-none focus:border-emerald-500 font-mono"
-                  >
-                    <option value="CLIENT">CLIENT (Terminal Utilizador)</option>
-                    <option value="ROUTER_REPEATER">ROUTER (Repetidor de Pico)</option>
-                    <option value="TRACKER">TRACKER (Sensor GPS)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowAddNodeModal(false)}
-                  className="px-3 py-2 text-slate-400 hover:text-slate-200 font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg transition-colors"
-                >
-                  Registrar Nó
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

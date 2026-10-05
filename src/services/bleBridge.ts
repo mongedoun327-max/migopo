@@ -78,7 +78,7 @@ export class BleBridgeService {
     if (!this.status.isWebBleAvailable) {
       return {
         success: false,
-        message: 'Web Bluetooth is not supported in this browser. Use Chrome/Edge or activate Simulator Mode.',
+        message: 'Web Bluetooth não é suportado neste navegador. Utilize o Chrome ou Edge para emparelhar com a sua placa LoRa.',
       };
     }
 

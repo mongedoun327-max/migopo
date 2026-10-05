@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio, Bluetooth, ShieldAlert, Map, MessageSquare, Cpu } from 'lucide-react';
+import { Bluetooth, Map, MessageSquare, Cpu } from 'lucide-react';
 import { BleDeviceStatus } from '../types/mesh';
 
 interface TopNavProps {
@@ -7,7 +7,7 @@ interface TopNavProps {
   setActiveTab: (tab: string) => void;
   bleStatus: BleDeviceStatus;
   onOpenBleModal: () => void;
-  onTriggerSos: () => void;
+  onTriggerSos?: () => void;
 }
 
 export const TopNav: React.FC<TopNavProps> = ({
@@ -15,7 +15,6 @@ export const TopNav: React.FC<TopNavProps> = ({
   setActiveTab,
   bleStatus,
   onOpenBleModal,
-  onTriggerSos,
 }) => {
   const navItems = [
     { id: 'direct', label: 'Mensagens', icon: MessageSquare },
@@ -28,17 +27,9 @@ export const TopNav: React.FC<TopNavProps> = ({
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
         {/* Zone 1: Brand Wordmark */}
         <div className="flex items-center gap-2.5 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-bold shadow-md shadow-emerald-500/20">
-            <Radio className="w-4 h-4" />
-          </div>
-          <div className="flex flex-col">
-            <span className="font-bold text-base tracking-tight text-white leading-none">
-              LoRa<span className="text-emerald-400">Direct</span>
-            </span>
-            <span className="text-[10px] text-slate-500 font-medium tracking-wide">
-              Comunicação Off-Grid
-            </span>
-          </div>
+          <span className="font-bold text-base tracking-tight text-white leading-none">
+            LoRa<span className="text-emerald-400">Direct</span>
+          </span>
         </div>
 
         {/* Zone 2: Segmented Nav Control */}
@@ -63,7 +54,7 @@ export const TopNav: React.FC<TopNavProps> = ({
           })}
         </nav>
 
-        {/* Zone 3: Hardware Connection Status & Emergency SOS */}
+        {/* Zone 3: Hardware Connection Status */}
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={onOpenBleModal}
@@ -83,15 +74,6 @@ export const TopNav: React.FC<TopNavProps> = ({
             <span className="hidden sm:inline">
               {bleStatus.isConnected ? (bleStatus.deviceName || 'Rádio Conectado') : 'Ligar Rádio'}
             </span>
-          </button>
-
-          <button
-            onClick={onTriggerSos}
-            className="px-3 py-1.5 text-xs font-bold text-white bg-red-600 hover:bg-red-500 active:scale-95 rounded-xl transition-all shadow-md shadow-red-950/50 flex items-center gap-1.5"
-            title="Transmitir alerta de emergência para todos os rádios"
-          >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            <span>SOS</span>
           </button>
         </div>
       </div>

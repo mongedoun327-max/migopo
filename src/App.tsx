@@ -19,18 +19,17 @@ import {
   Wifi,
 } from 'lucide-react';
 import { TopNav } from './components/TopNav';
-import { CommunicatorView } from './components/CommunicatorView';
 import { MeshTopologyMap } from './components/MeshTopologyMap';
 import { HardwareBlePanel } from './components/HardwareBlePanel';
-import { Codec2LabView } from './components/Codec2LabView';
-import { CryptoSecurityPanel } from './components/CryptoSecurityPanel';
-import { FirmwareGuide } from './components/FirmwareGuide';
 import { meshManager } from './services/meshProtocol';
 import { bleBridge } from './services/bleBridge';
 import { BleDeviceStatus, MeshNode, MeshPacket, UserRegistration } from './types/mesh';
 import { audioEngine } from './services/audioCodec';
 import { InstagramDirectView } from './components/InstagramDirectView';
 import { RegistrationModal } from './components/RegistrationModal';
+import { EditNameModal } from './components/EditNameModal';
+import { voiceCallService, VoiceCallState } from './services/voiceCallService';
+import { VoiceCallModal } from './components/VoiceCallModal';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('direct');
@@ -38,7 +37,9 @@ export default function App() {
   const [packets, setPackets] = useState<MeshPacket[]>(meshManager.getPackets());
   const [bleStatus, setBleStatus] = useState<BleDeviceStatus>(bleBridge.getStatus());
   const [myProfile, setMyProfile] = useState<UserRegistration>(meshManager.getMyProfile());
+  const [callState, setCallState] = useState<VoiceCallState>(voiceCallService.getState());
 
+  const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
   const [isSosModalOpen, setIsSosModalOpen] = useState(false);
   const [isBleModalOpen, setIsBleModalOpen] = useState(false);
@@ -47,14 +48,28 @@ export default function App() {
 
   // Subscribe to services
   useEffect(() => {
-    const unsubNodes = meshManager.subscribeNodes(setNodes);
+    const unsubNodes = meshManager.subscribeNodes((newNodes) => {
+      setNodes(newNodes);
+      const selfNode = newNodes.find((n) => n?.isSelf) || newNodes[0];
+      if (selfNode) {
+        voiceCallService.init(selfNode.id, selfNode.name);
+      }
+    });
     const unsubPackets = meshManager.subscribePackets(setPackets);
     const unsubBle = bleBridge.subscribe(setBleStatus);
+    const unsubCall = voiceCallService.subscribe(setCallState);
+
+    // Initial init
+    const initialSelf = meshManager.getNodes().find((n) => n?.isSelf);
+    if (initialSelf) {
+      voiceCallService.init(initialSelf.id, initialSelf.name);
+    }
 
     return () => {
       unsubNodes();
       unsubPackets();
       unsubBle();
+      unsubCall();
     };
   }, []);
 
@@ -124,6 +139,7 @@ export default function App() {
             initialSelectedContactId={selectedDirectNodeId}
             onOpenMap={() => setActiveTab('topology')}
             onOpenHardwareTools={() => setActiveTab('hardware')}
+            onOpenEditName={() => setIsEditNameModalOpen(true)}
             onOpenProfileRegistration={() => setIsRegistrationModalOpen(true)}
           />
         )}
@@ -239,12 +255,12 @@ export default function App() {
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Estado Atual:</span>
                   <span className="font-mono text-emerald-400 font-bold">
-                    {bleStatus.mode === 'HARDWARE_BLE' ? 'BLE Conectado' : 'Simulador Virtual'}
+                    {bleStatus.isConnected ? 'Rádio BLE Conectado' : 'Desconectado'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-slate-400">Dispositivo:</span>
-                  <span className="font-mono text-slate-200">{bleStatus.deviceName}</span>
+                  <span className="font-mono text-slate-200">{bleStatus.deviceName || 'Nenhum rádio emparelhado'}</span>
                 </div>
               </div>
 
@@ -272,6 +288,18 @@ export default function App() {
         </div>
       )}
 
+      {/* Simple Name Change Dialog - No account creation, no chat messages */}
+      <EditNameModal
+        isOpen={isEditNameModalOpen}
+        onClose={() => setIsEditNameModalOpen(false)}
+        currentName={myProfile.name || (nodes.find((n) => n?.isSelf)?.name ?? 'Operador')}
+        onSave={(newName) => {
+          meshManager.updateMyName(newName);
+          setNodes(meshManager.getNodes());
+          setMyProfile(meshManager.getMyProfile());
+        }}
+      />
+
       {/* Off-Grid User Registration & Cryptographic Profile Modal */}
       <RegistrationModal
         isOpen={isRegistrationModalOpen}
@@ -282,6 +310,9 @@ export default function App() {
           setNodes(meshManager.getNodes());
         }}
       />
+
+      {/* Real-time Voice Call Overlay Modal */}
+      <VoiceCallModal callState={callState} />
     </div>
   );
 }

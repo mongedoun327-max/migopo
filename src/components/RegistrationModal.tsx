@@ -91,11 +91,11 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
         {/* Off-Grid Explanation Banner */}
         <div className="p-3 bg-slate-900/80 rounded-2xl border border-slate-800/80 text-xs text-slate-300 space-y-1">
           <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Privacidade Total & Modo Local</span>
+            <Radio className="w-4 h-4" />
+            <span>Sincronização em Tempo Real na Rede</span>
           </div>
           <p className="text-[11px] text-slate-400 leading-relaxed">
-            As alterações de nome e perfil deste cadastro são salvas <strong>exclusivamente no seu telemóvel</strong>. Nenhuma informação ou alteração de perfil é enviada para os outros utilizadores.
+            Ao salvar o seu nome, handle e indicativo, a alteração é <strong>transmitida instantaneamente para todos os utilizadores</strong> conectados na rede mesh.
           </p>
         </div>
 
@@ -240,7 +240,7 @@ export const RegistrationModal: React.FC<RegistrationModalProps> = ({
               className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-all shadow-md shadow-emerald-950/30 flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>Gravar Identidade & Iniciar Rádio</span>
+              <span>Salvar & Transmitir Nome na Rede</span>
             </button>
           </div>
         </form>

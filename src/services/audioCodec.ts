@@ -153,7 +153,7 @@ export class AudioEngine {
           waveformSamples.push(Math.min(1, (sum / blockSize) * 3));
         }
 
-        // Pack simulated Codec2 bitstream frames
+        // Pack Codec2 bitstream frames
         const bitstreamBase64 = this.generateBitstream(duration, codecMode, waveformSamples);
 
         const reader = new FileReader();
@@ -256,10 +256,10 @@ export class AudioEngine {
   /**
    * Play audio voice burst with tactical digital vocoder filter effect
    */
-  async playVoiceBurst(burst: AudioVoiceBurst, simulatedVocoder: boolean = true): Promise<void> {
+  async playVoiceBurst(burst: AudioVoiceBurst, digitalVocoder: boolean = true): Promise<void> {
     this.playRadioSquelch('intro');
 
-    if (!simulatedVocoder && burst.audioBlobUrl) {
+    if (!digitalVocoder && burst.audioBlobUrl) {
       const audio = new Audio(burst.audioBlobUrl);
       audio.onended = () => this.playRadioSquelch('outro');
       await audio.play();

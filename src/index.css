@@ -1,16 +1,87 @@
 @import "tailwindcss";
 
-@layer base {
-  body {
-    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  }
+@font-face {
+  font-family: 'Gilker';
+  src: local('Gilker'), local('Gilker Regular'), local('Gilker-Regular'),
+       local('Gliker'), local('Gliker Regular'), local('Gliker-Regular');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
 }
 
+@font-face {
+  font-family: 'Gilker';
+  src: local('Gilker Medium'), local('Gilker-Medium'),
+       local('Gliker Medium'), local('Gliker-Medium');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilker';
+  src: local('Gilker SemiBold'), local('Gilker-SemiBold'),
+       local('Gliker SemiBold'), local('Gliker-SemiBold');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilker';
+  src: local('Gilker Bold'), local('Gilker-Bold'),
+       local('Gliker Bold'), local('Gliker-Bold');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Gilker';
+  src: local('Gilker Black'), local('Gilker-Black'),
+       local('Gliker Black'), local('Gliker-Black');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --font-sans: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-display: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono: 'Gilker', 'Gliker', 'JetBrains Mono', monospace;
+}
+
+/* Universal application of Gilker font to all letters and elements across the entire app */
+*,
+*::before,
+*::after,
+html,
+body,
+#root,
+button,
+input,
+select,
+textarea,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+span,
+a,
+div,
+label {
+  font-family: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+.font-sans,
 .font-display {
-  font-family: 'Chakra Petch', system-ui, sans-serif;
+  font-family: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, sans-serif !important;
 }
 
 .font-mono {
-  font-family: 'JetBrains Mono', monospace;
+  font-family: 'Gilker', 'Gliker', 'JetBrains Mono', monospace !important;
   font-variant-numeric: tabular-nums;
 }

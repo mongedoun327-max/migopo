@@ -1,4 +1,6 @@
 import express from 'express';
+import http from 'http';
+import { WebSocketServer, WebSocket } from 'ws';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -53,6 +55,27 @@ interface ServerPacket {
   likedByMe?: boolean;
 }
 
+interface CallSession {
+  callId: string;
+  callerNodeId: string;
+  callerName: string;
+  targetNodeId: string;
+  targetName?: string;
+  status: 'RINGING' | 'CONNECTED' | 'REJECTED' | 'ENDED';
+  startedAt: number;
+  connectedAt?: number;
+  endedAt?: number;
+}
+
+interface BufferedAudioChunk {
+  callId: string;
+  fromNodeId: string;
+  toNodeId: string;
+  audioData: string;
+  mimeType: string;
+  timestamp: number;
+}
+
 async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 3000;
@@ -62,6 +85,168 @@ async function startServer() {
   // In-memory real mesh network state across all real users
   let registeredNodes: ServerNode[] = [];
   let meshPackets: ServerPacket[] = [];
+
+  // Voice Call Sessions and Relay State
+  const callSessions = new Map<string, CallSession>();
+  let bufferedAudio: BufferedAudioChunk[] = [];
+  const pendingOffers = new Map<string, any>();
+  const wsClients = new Map<string, Set<WebSocket>>();
+
+  const server = http.createServer(app);
+  const wss = new WebSocketServer({ server, path: '/ws/call' });
+
+  wss.on('connection', (ws: WebSocket, req) => {
+    let clientNodeId: string | null = null;
+
+    try {
+      const url = new URL(req.url || '', `http://${req.headers.host || 'localhost'}`);
+      clientNodeId = url.searchParams.get('nodeId');
+    } catch {
+      clientNodeId = null;
+    }
+
+    if (clientNodeId) {
+      if (!wsClients.has(clientNodeId)) {
+        wsClients.set(clientNodeId, new Set());
+      }
+      wsClients.get(clientNodeId)!.add(ws);
+    }
+
+    ws.on('message', (raw) => {
+      try {
+        const msg = JSON.parse(raw.toString());
+        if (!msg || !msg.type) return;
+
+        if (msg.type === 'REGISTER') {
+          const registeredId = typeof msg.nodeId === 'string' ? msg.nodeId : null;
+          if (registeredId) {
+            clientNodeId = registeredId;
+            if (!wsClients.has(registeredId)) {
+              wsClients.set(registeredId, new Set());
+            }
+            wsClients.get(registeredId)!.add(ws);
+          }
+          return;
+        }
+
+        if (msg.type === 'CALL_OFFER') {
+          const { callId, callerNodeId, callerName, targetNodeId } = msg;
+          const session: CallSession = {
+            callId,
+            callerNodeId,
+            callerName,
+            targetNodeId,
+            status: 'RINGING',
+            startedAt: Date.now(),
+          };
+          callSessions.set(callId, session);
+          pendingOffers.set(targetNodeId, msg);
+
+          // Broadcast to target's connected sockets
+          const targetSockets = wsClients.get(targetNodeId);
+          if (targetSockets && targetSockets.size > 0) {
+            const payload = JSON.stringify(msg);
+            targetSockets.forEach((s) => {
+              if (s.readyState === WebSocket.OPEN) s.send(payload);
+            });
+          }
+          return;
+        }
+
+        if (msg.type === 'CALL_ANSWER') {
+          const { callId, callerNodeId, targetNodeId } = msg;
+          const session = callSessions.get(callId);
+          if (session) {
+            session.status = 'CONNECTED';
+            session.connectedAt = Date.now();
+          }
+          pendingOffers.delete(targetNodeId);
+
+          const callerSockets = wsClients.get(callerNodeId);
+          if (callerSockets) {
+            const payload = JSON.stringify(msg);
+            callerSockets.forEach((s) => {
+              if (s.readyState === WebSocket.OPEN) s.send(payload);
+            });
+          }
+          return;
+        }
+
+        if (msg.type === 'CALL_REJECT' || msg.type === 'CALL_HANGUP') {
+          const { callId, callerNodeId, targetNodeId } = msg;
+          const session = callSessions.get(callId);
+          if (session) {
+            session.status = msg.type === 'CALL_REJECT' ? 'REJECTED' : 'ENDED';
+            session.endedAt = Date.now();
+          }
+          pendingOffers.delete(targetNodeId);
+
+          // Notify both caller and target
+          const payload = JSON.stringify(msg);
+          [callerNodeId, targetNodeId].forEach((id) => {
+            if (!id) return;
+            const socks = wsClients.get(id);
+            if (socks) {
+              socks.forEach((s) => {
+                if (s.readyState === WebSocket.OPEN) s.send(payload);
+              });
+            }
+          });
+          return;
+        }
+
+        if (msg.type === 'CALL_AUDIO_STREAM') {
+          const { callId, fromNodeId, toNodeId, audioData, mimeType, timestamp } = msg;
+          const chunk: BufferedAudioChunk = {
+            callId,
+            fromNodeId,
+            toNodeId,
+            audioData,
+            mimeType: mimeType || 'audio/webm',
+            timestamp: timestamp || Date.now(),
+          };
+
+          bufferedAudio.push(chunk);
+          if (bufferedAudio.length > 200) {
+            bufferedAudio.shift();
+          }
+
+          // Ultra-low latency direct forward to target
+          const targetSockets = wsClients.get(toNodeId);
+          if (targetSockets) {
+            const payload = JSON.stringify(msg);
+            targetSockets.forEach((s) => {
+              if (s.readyState === WebSocket.OPEN) s.send(payload);
+            });
+          }
+          return;
+        }
+
+        if (msg.type === 'WEBRTC_SIGNAL') {
+          const { toNodeId } = msg;
+          const targetSockets = wsClients.get(toNodeId);
+          if (targetSockets) {
+            const payload = JSON.stringify(msg);
+            targetSockets.forEach((s) => {
+              if (s.readyState === WebSocket.OPEN) s.send(payload);
+            });
+          }
+          return;
+        }
+      } catch (err) {
+        console.warn('[Call-WS] Error handling message:', err);
+      }
+    });
+
+    ws.on('close', () => {
+      if (clientNodeId && wsClients.has(clientNodeId)) {
+        wsClients.get(clientNodeId)!.delete(ws);
+        if (wsClients.get(clientNodeId)!.size === 0) {
+          wsClients.delete(clientNodeId);
+        }
+      }
+    });
+  });
 
   // Default broadcast channel node representing the common frequency for all real users
   const broadcastGroupNode: ServerNode = {
@@ -102,18 +287,23 @@ async function startServer() {
 
     const existingIndex = registeredNodes.findIndex((n) => n.id === node.id);
     if (existingIndex >= 0) {
+      const oldName = registeredNodes[existingIndex].name;
       registeredNodes[existingIndex] = {
         ...registeredNodes[existingIndex],
         ...node,
         lastHeard: Date.now(),
         isOnline: true,
       };
+      if (oldName !== node.name) {
+        console.log(`[LoRaMesh] Operador alterou nome: "${oldName}" -> "${node.name}" (@${node.username}) [${node.id}]`);
+      }
     } else {
       registeredNodes.push(node);
       console.log(`[LoRaMesh] Novo operador real registrado: ${node.name} (@${node.username}) [${node.id}]`);
     }
 
-    res.json({ success: true, node });
+    const updatedNode = existingIndex >= 0 ? registeredNodes[existingIndex] : node;
+    res.json({ success: true, node: updatedNode });
   });
 
   // Get all real connected nodes
@@ -165,6 +355,96 @@ async function startServer() {
     res.status(404).json({ error: 'Pacote não encontrado' });
   });
 
+  // ==========================================
+  // HTTP FALLBACK CALL SIGNALING & AUDIO STREAM
+  // ==========================================
+  app.post('/api/mesh/calls/offer', (req, res) => {
+    const { callId, callerNodeId, callerName, targetNodeId } = req.body;
+    if (!callId || !callerNodeId || !targetNodeId) {
+      return res.status(400).json({ error: 'Dados de chamada incompletos' });
+    }
+    const session: CallSession = {
+      callId,
+      callerNodeId,
+      callerName: callerName || 'Operador',
+      targetNodeId,
+      status: 'RINGING',
+      startedAt: Date.now(),
+    };
+    callSessions.set(callId, session);
+    pendingOffers.set(targetNodeId, req.body);
+    res.json({ success: true, session });
+  });
+
+  app.get('/api/mesh/calls/pending', (req, res) => {
+    const nodeId = req.query.nodeId as string;
+    if (!nodeId) return res.json({ offer: null });
+    const offer = pendingOffers.get(nodeId);
+    res.json({ offer: offer || null });
+  });
+
+  app.post('/api/mesh/calls/answer', (req, res) => {
+    const { callId, targetNodeId } = req.body;
+    const session = callSessions.get(callId);
+    if (session) {
+      session.status = 'CONNECTED';
+      session.connectedAt = Date.now();
+    }
+    pendingOffers.delete(targetNodeId);
+    res.json({ success: true, session });
+  });
+
+  app.post('/api/mesh/calls/reject', (req, res) => {
+    const { callId, targetNodeId } = req.body;
+    const session = callSessions.get(callId);
+    if (session) {
+      session.status = 'REJECTED';
+      session.endedAt = Date.now();
+    }
+    pendingOffers.delete(targetNodeId);
+    res.json({ success: true, session });
+  });
+
+  app.post('/api/mesh/calls/hangup', (req, res) => {
+    const { callId, targetNodeId } = req.body;
+    const session = callSessions.get(callId);
+    if (session) {
+      session.status = 'ENDED';
+      session.endedAt = Date.now();
+    }
+    if (targetNodeId) pendingOffers.delete(targetNodeId);
+    res.json({ success: true });
+  });
+
+  app.post('/api/mesh/calls/audio', (req, res) => {
+    const { callId, fromNodeId, toNodeId, audioData, mimeType } = req.body;
+    if (!callId || !audioData) {
+      return res.status(400).json({ error: 'Áudio inválido' });
+    }
+    const chunk: BufferedAudioChunk = {
+      callId,
+      fromNodeId,
+      toNodeId,
+      audioData,
+      mimeType: mimeType || 'audio/webm',
+      timestamp: Date.now(),
+    };
+    bufferedAudio.push(chunk);
+    if (bufferedAudio.length > 200) bufferedAudio.shift();
+    res.json({ success: true });
+  });
+
+  app.get('/api/mesh/calls/audio', (req, res) => {
+    const callId = req.query.callId as string;
+    const forNodeId = req.query.forNodeId as string;
+    const since = parseInt(req.query.since as string) || 0;
+
+    const chunks = bufferedAudio.filter(
+      (c) => c.callId === callId && c.toNodeId === forNodeId && c.timestamp > since
+    );
+    res.json(chunks);
+  });
+
   // Vite dev middleware vs static build
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
@@ -179,8 +459,8 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[LoRaMesh] Servidor 100% Real rodando na porta ${PORT}`);
+  server.listen(PORT, '0.0.0.0', () => {
+    console.log(`[LoRaMesh] Servidor 100% Real e Chamadas de Voz rodando na porta ${PORT}`);
   });
 }
 

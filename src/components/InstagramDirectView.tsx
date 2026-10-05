@@ -13,10 +13,14 @@ import {
   Check,
   UserPlus,
   Radio,
+  Pencil,
+  Phone,
+  Signal,
 } from 'lucide-react';
 import { MeshNode, MeshPacket, AudioVoiceBurst } from '../types/mesh';
 import { meshManager } from '../services/meshProtocol';
 import { audioEngine } from '../services/audioCodec';
+import { voiceCallService } from '../services/voiceCallService';
 
 interface InstagramDirectViewProps {
   nodes: MeshNode[];
@@ -24,6 +28,7 @@ interface InstagramDirectViewProps {
   initialSelectedContactId?: string;
   onOpenHardwareTools?: () => void;
   onOpenMap?: () => void;
+  onOpenEditName?: () => void;
   onOpenProfileRegistration?: () => void;
 }
 
@@ -33,6 +38,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
   initialSelectedContactId,
   onOpenHardwareTools,
   onOpenMap,
+  onOpenEditName,
   onOpenProfileRegistration,
 }) => {
   // Safe fallback self node
@@ -80,8 +86,6 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [currentlyPlayingAudioId, setCurrentlyPlayingAudioId] = useState<string | null>(null);
-  const [showPairModal, setShowPairModal] = useState(false);
-  const [newPeerName, setNewPeerName] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -105,9 +109,9 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
     nodes[0] ||
     undefined;
 
-  // Filter messages for current thread
+  // Filter messages for current thread (ignoring internal system announcements)
   const threadPackets = packets.filter((p) => {
-    if (!p) return false;
+    if (!p || p.packetType === 'NODE_ANNOUNCEMENT') return false;
     if (activeContact?.isGroup) {
       return p.toNodeId === 'BROADCAST' || p.channelId === 0;
     }
@@ -272,29 +276,28 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
           <div className="flex items-center gap-2">
             <h1 className="font-bold text-lg text-white">Conversas</h1>
             <button
-              onClick={onOpenProfileRegistration}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800 transition-colors"
-              title="Alterar o seu nome"
+              onClick={onOpenEditName || onOpenProfileRegistration}
+              className="text-[11px] px-2.5 py-1 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 transition-colors flex items-center gap-1.5 cursor-pointer"
+              title="Clique para alterar o seu nome diretamente"
             >
-              Eu: {selfNode.name.split(' ')[0]}
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+              <span className="truncate max-w-[120px]">
+                {selfNode.name}
+              </span>
+              <Pencil className="w-3 h-3 text-slate-500 hover:text-emerald-400 shrink-0" />
             </button>
           </div>
 
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setShowPairModal(true)}
-              className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors"
-              title="Nova conversa"
-            >
-              <UserPlus className="w-4 h-4" />
-            </button>
-
-            <button
               onClick={handleCopyLink}
-              className="p-2 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-900 transition-colors"
-              title="Copiar link"
+              className="p-2 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-900 transition-colors flex items-center gap-1.5"
+              title="Copiar link para convidar amigo"
             >
               {copiedLink ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              <span className="text-[11px] font-medium hidden sm:inline">
+                {copiedLink ? 'Link Copiado!' : 'Convidar Amigo'}
+              </span>
             </button>
           </div>
         </div>
@@ -444,7 +447,31 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-2">
+                {!activeContact.isGroup && (
+                  <>
+                    <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900 border border-slate-800 text-[10px] text-emerald-400 font-medium">
+                      <Signal className="w-3 h-3 text-emerald-400" />
+                      <span>Sinal Forte HD</span>
+                    </div>
+
+                    <button
+                      onClick={() =>
+                        voiceCallService.startCall(
+                          activeContact.id,
+                          activeContact.name,
+                          activeContact.callsign
+                        )
+                      }
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-full font-bold text-xs transition-all shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                      title="Fazer Chamada de Voz Direta (Sinal Forte HD)"
+                    >
+                      <Phone className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">Chamada de Voz</span>
+                    </button>
+                  </>
+                )}
+
                 <button
                   onClick={handleSendLocation}
                   className="p-2 text-slate-400 hover:text-sky-400 hover:bg-slate-900 rounded-full transition-colors"
@@ -471,12 +498,30 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                 threadPackets.map((pkt) => {
                   const isMe = pkt.fromNodeId === selfNode.id;
                   const isPlaying = currentlyPlayingAudioId === pkt.id;
+                  const isGroup = activeContact?.isGroup;
+                  const senderNode = nodes.find((n) => n && n.id === pkt.fromNodeId);
+                  const senderDisplayName = senderNode
+                    ? senderNode.name
+                    : (pkt.fromNodeId === 'group-broadcast' ? 'Canal Geral' : 'Operador');
+                  const senderCallsign = senderNode?.callsign;
 
                   return (
                     <div
                       key={pkt.id}
                       className={`flex flex-col ${isMe ? 'items-end' : 'items-start'} group`}
                     >
+                      {!isMe && isGroup && (
+                        <div className="flex items-center gap-1.5 mb-1 px-1">
+                          <span className="text-[11px] font-semibold text-emerald-400">
+                            {senderDisplayName}
+                          </span>
+                          {senderCallsign && (
+                            <span className="text-[9px] font-mono text-slate-400 uppercase bg-slate-800/80 px-1 py-0.5 rounded">
+                              {senderCallsign}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <div className="flex items-end gap-2 max-w-[85%] sm:max-w-md">
                         <div className="relative">
                           {/* Bubble */}
@@ -672,67 +717,6 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
           </div>
         )}
       </div>
-
-      {/* ========================================================================= */}
-      {/* MODAL: Nova Conversa / Adicionar Nome                                     */}
-      {/* ========================================================================= */}
-      {showPairModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-xl">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-900">
-              <h3 className="font-bold text-sm text-white">Nova Conversa</h3>
-              <button
-                onClick={() => setShowPairModal(false)}
-                className="text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!newPeerName.trim()) return;
-                const newContact = meshManager.addCustomNode({
-                  name: newPeerName.trim(),
-                });
-                setSelectedContactId(newContact.id);
-                setShowPairModal(false);
-                setNewPeerName('');
-              }}
-              className="space-y-3 text-xs"
-            >
-              <div>
-                <label className="block text-slate-400 mb-1 font-medium">Nome da pessoa</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="ex: Carlos Silva"
-                  value={newPeerName}
-                  onChange={(e) => setNewPeerName(e.target.value)}
-                  className="w-full px-3 py-2 bg-slate-900 border border-slate-800 rounded-xl text-white focus:outline-none focus:border-emerald-500"
-                />
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-900">
-                <button
-                  type="button"
-                  onClick={() => setShowPairModal(false)}
-                  className="px-3 py-2 text-slate-400 hover:text-white"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl transition-colors"
-                >
-                  Adicionar
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
