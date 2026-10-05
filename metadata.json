@@ -1,0 +1,6 @@
+{
+  "name": "LoRaMesh Tactical - Off-Grid PTT & Voice-over-LoRa Communicator",
+  "description": "Off-grid decentralized LoRa mesh communicator with ultra-low bitrate Codec2 Push-To-Talk voice bursts, BLE hardware bridge (ESP32/T-Beam), hop routing, and AES-256 E2EE.",
+  "requestFramePermissions": ["microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
