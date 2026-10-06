@@ -1,57 +1,49 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Google+Sans+Flex:opsz,wght@6..144,100..1000&family=Google+Sans+Text:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&display=swap');
 
 @font-face {
-  font-family: 'Gilker';
-  src: local('Gilker'), local('Gilker Regular'), local('Gilker-Regular'),
-       local('Gliker'), local('Gliker Regular'), local('Gliker-Regular');
+  font-family: 'Google Sans';
+  src: local('Google Sans'), local('GoogleSans'), local('Google Sans Regular'), local('GoogleSans-Regular'),
+       local('Product Sans'), local('ProductSans'), local('Product Sans Regular');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Gilker';
-  src: local('Gilker Medium'), local('Gilker-Medium'),
-       local('Gliker Medium'), local('Gliker-Medium');
+  font-family: 'Google Sans';
+  src: local('Google Sans Medium'), local('GoogleSans-Medium'),
+       local('Product Sans Medium');
   font-weight: 500;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Gilker';
-  src: local('Gilker SemiBold'), local('Gilker-SemiBold'),
-       local('Gliker SemiBold'), local('Gliker-SemiBold');
+  font-family: 'Google Sans';
+  src: local('Google Sans SemiBold'), local('GoogleSans-SemiBold'),
+       local('Product Sans SemiBold');
   font-weight: 600;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'Gilker';
-  src: local('Gilker Bold'), local('Gilker-Bold'),
-       local('Gliker Bold'), local('Gliker-Bold');
+  font-family: 'Google Sans';
+  src: local('Google Sans Bold'), local('GoogleSans-Bold'),
+       local('Product Sans Bold');
   font-weight: 700;
   font-style: normal;
   font-display: swap;
 }
 
-@font-face {
-  font-family: 'Gilker';
-  src: local('Gilker Black'), local('Gilker-Black'),
-       local('Gliker Black'), local('Gliker-Black');
-  font-weight: 800;
-  font-style: normal;
-  font-display: swap;
-}
-
 @theme {
-  --font-sans: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-display: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, sans-serif;
-  --font-mono: 'Gilker', 'Gliker', 'JetBrains Mono', monospace;
+  --font-sans: 'Google Sans', 'Google Sans Text', 'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-display: 'Google Sans', 'Google Sans Text', 'Google Sans Flex', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: 'Google Sans', 'Google Sans Text', monospace;
 }
 
-/* Universal application of Gilker font to all letters and elements across the entire app */
+/* Universal application of Google Sans font to all letters and elements across the entire system */
 *,
 *::before,
 *::after,
@@ -72,16 +64,24 @@ p,
 span,
 a,
 div,
-label {
-  font-family: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+label,
+li,
+ul,
+form,
+nav,
+header,
+main,
+section,
+article {
+  font-family: 'Google Sans', 'Google Sans Text', 'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
 }
 
 .font-sans,
 .font-display {
-  font-family: 'Gilker', 'Gliker', 'Plus Jakarta Sans', system-ui, sans-serif !important;
+  font-family: 'Google Sans', 'Google Sans Text', 'Google Sans Flex', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
 .font-mono {
-  font-family: 'Gilker', 'Gliker', 'JetBrains Mono', monospace !important;
+  font-family: 'Google Sans', 'Google Sans Text', monospace !important;
   font-variant-numeric: tabular-nums;
 }

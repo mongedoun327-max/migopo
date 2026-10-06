@@ -833,6 +833,41 @@ export class MeshNetworkManager {
       this.notifyNodes();
     }
   }
+
+  addNode(node: MeshNode): void {
+    const existing = this.nodes.findIndex((n) => n.id === node.id);
+    if (existing >= 0) {
+      this.nodes[existing] = { ...this.nodes[existing], ...node };
+    } else {
+      this.nodes.push(node);
+    }
+    this.saveContactsToStorage(this.nodes);
+    this.notifyNodes();
+  }
+
+  /**
+   * Delete a contact / conversation and notify subscribers
+   */
+  deleteContact(nodeId: string): void {
+    this.nodes = this.nodes.filter((n) => n.id !== nodeId);
+    this.saveContactsToStorage(this.nodes);
+    this.notifyNodes();
+  }
+
+  /**
+   * Clear all messages in a conversation
+   */
+  clearConversation(contactId: string, selfId: string): void {
+    this.packets = this.packets.filter(
+      (p) =>
+        !(
+          (p.fromNodeId === contactId && (p.toNodeId === selfId || p.toNodeId === 'BROADCAST')) ||
+          (p.fromNodeId === selfId && p.toNodeId === contactId)
+        )
+    );
+    this.savePacketsToStorage();
+    this.notifyPackets();
+  }
 }
 
 export const meshManager = new MeshNetworkManager();

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Bluetooth, Map, MessageSquare, Cpu } from 'lucide-react';
+import { Bluetooth, MessageSquare } from 'lucide-react';
 import { BleDeviceStatus } from '../types/mesh';
+import { DialpadIcon } from './DialpadIcon';
+import { ContactsIcon } from './ContactsIcon';
 
 interface TopNavProps {
   activeTab: string;
@@ -17,9 +19,9 @@ export const TopNav: React.FC<TopNavProps> = ({
   onOpenBleModal,
 }) => {
   const navItems = [
-    { id: 'direct', label: 'Mensagens', icon: MessageSquare },
-    { id: 'topology', label: 'Mapa Mesh', icon: Map },
-    { id: 'hardware', label: 'Hardware & BLE', icon: Cpu },
+    { id: 'direct', label: 'Conversas', icon: MessageSquare },
+    { id: 'keypad', label: 'Teclado', icon: DialpadIcon },
+    { id: 'contacts', label: 'Contactos', icon: ContactsIcon },
   ];
 
   return (
@@ -32,27 +34,29 @@ export const TopNav: React.FC<TopNavProps> = ({
           </span>
         </div>
 
-        {/* Zone 2: Segmented Nav Control */}
-        <nav className="hidden md:flex items-center gap-1 p-1 bg-slate-900/90 rounded-xl border border-slate-800/80 shadow-inner">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => setActiveTab(item.id)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
-                  isActive
-                    ? 'bg-slate-800 text-white shadow-sm text-emerald-400'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        {/* Zone 2: Segmented Nav Control - Only visible in Conversas tab */}
+        {activeTab === 'direct' && (
+          <nav className="hidden md:flex items-center gap-1 p-1 bg-slate-900/90 rounded-xl border border-slate-800/80 shadow-inner animate-fadeIn">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeTab === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveTab(item.id)}
+                  className={`flex items-center gap-2 px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all ${
+                    isActive
+                      ? 'bg-slate-800 text-white shadow-sm text-emerald-400'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  <span>{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        )}
 
         {/* Zone 3: Hardware Connection Status */}
         <div className="flex items-center gap-2 shrink-0">

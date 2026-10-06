@@ -17,8 +17,10 @@ import {
   CheckCircle2,
   AlertTriangle,
   Wifi,
+  Grid3x3,
+  Users,
+  MessageSquare,
 } from 'lucide-react';
-import { TopNav } from './components/TopNav';
 import { MeshTopologyMap } from './components/MeshTopologyMap';
 import { HardwareBlePanel } from './components/HardwareBlePanel';
 import { meshManager } from './services/meshProtocol';
@@ -30,6 +32,12 @@ import { RegistrationModal } from './components/RegistrationModal';
 import { EditNameModal } from './components/EditNameModal';
 import { voiceCallService, VoiceCallState } from './services/voiceCallService';
 import { VoiceCallModal } from './components/VoiceCallModal';
+import { KeypadView } from './components/KeypadView';
+import { ContactsHubView } from './components/ContactsHubView';
+import { AddContactModal } from './components/AddContactModal';
+import { DialpadIcon } from './components/DialpadIcon';
+import { ContactsIcon } from './components/ContactsIcon';
+import { ConversasIcon } from './components/ConversasIcon';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('direct');
@@ -41,10 +49,11 @@ export default function App() {
 
   const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
+  const [isAddContactModalOpen, setIsAddContactModalOpen] = useState(false);
   const [isSosModalOpen, setIsSosModalOpen] = useState(false);
   const [isBleModalOpen, setIsBleModalOpen] = useState(false);
   const [sosSentBanner, setSosSentBanner] = useState(false);
-  const [selectedDirectNodeId, setSelectedDirectNodeId] = useState<string>('group-broadcast');
+  const [selectedDirectNodeId, setSelectedDirectNodeId] = useState<string>('');
 
   // Subscribe to services
   useEffect(() => {
@@ -96,24 +105,52 @@ export default function App() {
     setTimeout(() => setSosSentBanner(false), 8000);
   };
 
-  // Mobile Bottom Navigation Bar Items
+  // Mobile Bottom Navigation Bar Items:
+  // Button 1: Conversas (Direct com ícone SVG fornecido)
+  // Button 2 (meio): Teclado (Keypad)
+  // Button 3 (direita): Contactos (Contacts com ícone fornecido)
   const mobileTabs = [
-    { id: 'direct', label: 'Direct', icon: Radio },
-    { id: 'topology', label: 'Mapa Nós', icon: Share2 },
-    { id: 'hardware', label: 'ESP32 BLE', icon: Cpu },
+    { id: 'direct', label: 'Conversas', icon: ConversasIcon },
+    { id: 'keypad', label: 'Teclado', icon: DialpadIcon },
+    { id: 'contacts', label: 'Contactos', icon: ContactsIcon },
   ];
 
-  return (
-    <div className="min-h-screen bg-black text-slate-100 flex flex-col font-sans pb-16 md:pb-0">
-      {/* Top Bar Navigation */}
-      <TopNav
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        bleStatus={bleStatus}
-        onOpenBleModal={() => setIsBleModalOpen(true)}
-        onTriggerSos={handleTriggerSos}
-      />
+  const handleAddNewContact = (newContact: Partial<MeshNode>, phoneNumber: string) => {
+    const fullNode: MeshNode = {
+      id: newContact.id || `node_phone_${phoneNumber}`,
+      name: newContact.name || 'Operador',
+      username: newContact.username || 'operador',
+      callsign: newContact.callsign || 'OP-4116',
+      phoneNumber: phoneNumber,
+      avatarColor: newContact.avatarColor || '#10b981',
+      avatarInitials: newContact.avatarInitials || 'OP',
+      role: 'CLIENT',
+      hardware: 'ESP32 DIY SX1262',
+      isOnline: true,
+      lastHeard: Date.now(),
+      batteryPct: 100,
+      batteryVoltage: 4.2,
+      gps: { lat: 38.72, lng: -9.14, alt: 50 },
+      x: 50,
+      y: 50,
+      antennaDbi: 3.0,
+      hopsAway: 1,
+      rssi: -42,
+      snr: 14.0,
+      packetsForwarded: 0,
+    };
+    meshManager.addNode(fullNode);
+    setNodes(meshManager.getNodes());
+    setSelectedDirectNodeId(fullNode.id);
+    setActiveTab('direct');
+  };
 
+  return (
+    <div
+      className={`min-h-screen bg-black text-slate-100 flex flex-col font-sans ${
+        activeTab === 'direct' && !selectedDirectNodeId ? 'pb-16' : 'pb-0'
+      }`}
+    >
       {/* SOS Alert Banner */}
       {sosSentBanner && (
         <div className="bg-red-600 text-white px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-lg shadow-red-950/60 animate-bounce">
@@ -137,10 +174,43 @@ export default function App() {
             nodes={nodes}
             packets={packets}
             initialSelectedContactId={selectedDirectNodeId}
+            onSelectContactId={(id) => setSelectedDirectNodeId(id)}
             onOpenMap={() => setActiveTab('topology')}
             onOpenHardwareTools={() => setActiveTab('hardware')}
             onOpenEditName={() => setIsEditNameModalOpen(true)}
             onOpenProfileRegistration={() => setIsRegistrationModalOpen(true)}
+            bleStatus={bleStatus}
+          />
+        )}
+
+        {activeTab === 'keypad' && (
+          <KeypadView
+            nodes={nodes}
+            onBack={() => {
+              setSelectedDirectNodeId('');
+              setActiveTab('direct');
+            }}
+            onOpenChatWithNode={(nodeId) => {
+              setSelectedDirectNodeId(nodeId);
+              setActiveTab('direct');
+            }}
+          />
+        )}
+
+        {activeTab === 'contacts' && (
+          <ContactsHubView
+            nodes={nodes}
+            packets={packets}
+            onBack={() => {
+              setSelectedDirectNodeId('');
+              setActiveTab('direct');
+            }}
+            onOpenChatWithNode={(nodeId) => {
+              setSelectedDirectNodeId(nodeId);
+              setActiveTab('direct');
+            }}
+            onOpenAddContact={() => setIsAddContactModalOpen(true)}
+            onOpenKeypad={() => setActiveTab('keypad')}
           />
         )}
 
@@ -160,15 +230,22 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Tab Bar */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-md border-t border-slate-900 grid grid-cols-3 items-center h-14 px-2">
+      {/* Mobile Fixed Bottom Tab Bar - Disappears in Keypad, Contactos, and when inside an active conversation */}
+      <nav
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-md border-t border-slate-900 grid grid-cols-3 items-center h-14 px-2 ${
+          activeTab === 'direct' && !selectedDirectNodeId ? '' : 'hidden'
+        }`}
+      >
         {mobileTabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                setSelectedDirectNodeId('');
+                setActiveTab(tab.id);
+              }}
               className={`flex flex-col items-center justify-center min-h-[44px] transition-colors ${
                 isActive ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
               }`}
@@ -313,6 +390,14 @@ export default function App() {
 
       {/* Real-time Voice Call Overlay Modal */}
       <VoiceCallModal callState={callState} />
+
+      {/* Add Contact by 8-Digit Number Modal */}
+      <AddContactModal
+        isOpen={isAddContactModalOpen}
+        onClose={() => setIsAddContactModalOpen(false)}
+        onAddContact={handleAddNewContact}
+        existingNodes={nodes}
+      />
     </div>
   );
 }

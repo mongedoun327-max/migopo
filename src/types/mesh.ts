@@ -48,6 +48,7 @@ export interface UserRegistration {
   callsign: string; // e.g. 'ALFA-01'
   bio: string;
   nodeId: string; // Cryptographic Node ID e.g. '!e8f2491a'
+  phoneNumber?: string; // 8-digit unique system number e.g. '41160004'
   role: NodeRole;
   hardware: 'TTGO T-Beam v1.2' | 'Heltec WiFi LoRa 32 V3' | 'RAK4631 WisBlock' | 'ESP32 DIY SX1262';
   publicKeyHex: string;
@@ -84,6 +85,7 @@ export interface MeshNode {
   name: string;
   username: string; // e.g. 'sofia.patrulha'
   callsign: string;
+  phoneNumber?: string; // 8-digit unique system number e.g. '41160004'
   avatarColor?: string; // Hex color for avatar
   avatarInitials?: string;
   avatarUrl?: string;
