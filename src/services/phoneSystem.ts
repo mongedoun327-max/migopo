@@ -9,8 +9,9 @@
  */
 
 export const SYSTEM_PHONE_PREFIX = '4116';
-const STORAGE_KEY_MY_NUMBER = 'lora_user_phone_number_v1';
-const STORAGE_KEY_ASSIGNED_NUMBERS = 'lora_assigned_peer_numbers_v1';
+const STORAGE_KEY_MY_NUMBER = 'lora_user_phone_number_v2';
+const STORAGE_KEY_ASSIGNED_NUMBERS = 'lora_assigned_peer_numbers_v2';
+const STORAGE_KEY_SEQ_COUNTER = 'lora_phone_sequence_counter_v2';
 
 /**
  * Formats 8-digit number as "4116 XXXX"
@@ -47,11 +48,45 @@ export function isValidPhoneNumber(num: string): boolean {
 }
 
 /**
- * Get or create the user's permanent 8-digit number.
- * "um usuario só tem direito a um, ela não pode gerar mais um outro"
+ * Synchronous local generation of the next unique sequential number:
+ * Starts at 4116 0001, then 4116 0002, 4116 0003, etc.
  */
-export function getMyPermanentPhoneNumber(): string {
-  if (typeof window === 'undefined') return '41160004';
+export function generateLocalSequentialNumber(): string {
+  let counter = 1;
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_SEQ_COUNTER);
+    if (saved) {
+      const parsed = parseInt(saved, 10);
+      if (!isNaN(parsed) && parsed >= 1) {
+        counter = parsed;
+      }
+    }
+  } catch {}
+
+  const assigned = getAssignedNumbersMap();
+  const assignedValues = new Set(Object.values(assigned));
+
+  // Find next unused sequential number starting from counter
+  while (assignedValues.has(`${SYSTEM_PHONE_PREFIX}${counter.toString().padStart(4, '0')}`)) {
+    counter++;
+  }
+
+  const result = `${SYSTEM_PHONE_PREFIX}${counter.toString().padStart(4, '0')}`;
+  
+  try {
+    localStorage.setItem(STORAGE_KEY_SEQ_COUNTER, (counter + 1).toString());
+  } catch {}
+
+  return result;
+}
+
+/**
+ * Generate and assign permanent phone number for the user:
+ * Synchronizes with server backend to guarantee no duplicates across multiple clients,
+ * strictly starting at 4116 0001 and counting sequentially.
+ */
+export async function allocatePermanentUserNumber(nodeId: string): Promise<string> {
+  if (typeof window === 'undefined') return '41160001';
 
   try {
     const existing = localStorage.getItem(STORAGE_KEY_MY_NUMBER);
@@ -59,33 +94,61 @@ export function getMyPermanentPhoneNumber(): string {
       return existing;
     }
 
-    // Generate unique 4 digits
-    const assigned = getAssignedNumbersMap();
-    let uniqueSuffix = '';
-    let candidate = '';
+    // Try server-authoritative allocation
+    try {
+      const resp = await fetch('/api/mesh/phone/allocate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nodeId: nodeId || 'self_node' }),
+      });
 
-    // Seed with a clean non-colliding suffix like 0004 as shown in user screenshot
-    if (!assigned['0004'] && !Object.values(assigned).includes('41160004')) {
-      candidate = '41160004';
-    } else {
-      for (let i = 0; i < 1000; i++) {
-        const rand = Math.floor(Math.random() * 9000 + 1000).toString().padStart(4, '0');
-        candidate = `${SYSTEM_PHONE_PREFIX}${rand}`;
-        if (!Object.values(assigned).includes(candidate)) {
-          uniqueSuffix = rand;
-          break;
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data && data.phoneNumber && isValidPhoneNumber(data.phoneNumber)) {
+          localStorage.setItem(STORAGE_KEY_MY_NUMBER, data.phoneNumber);
+          return data.phoneNumber;
         }
       }
-      if (!uniqueSuffix) {
-        candidate = `${SYSTEM_PHONE_PREFIX}${Math.floor(Date.now() % 9000 + 1000)}`;
-      }
+    } catch {
+      // Offline fallback
     }
 
+    // Local sequential allocation starting at 41160001
+    const candidate = generateLocalSequentialNumber();
     localStorage.setItem(STORAGE_KEY_MY_NUMBER, candidate);
     return candidate;
   } catch {
-    return '41160004';
+    return '41160001';
   }
+}
+
+/**
+ * Get or create the user's permanent 8-digit number.
+ * "um usuario só tem direito a um, ela não pode gerar mais um outro"
+ * O primeiro vai ser o usuario 4116 0001 e assim em seguida.
+ */
+export function getMyPermanentPhoneNumber(): string {
+  if (typeof window === 'undefined') return '41160001';
+
+  try {
+    const existing = localStorage.getItem(STORAGE_KEY_MY_NUMBER);
+    if (existing && isValidPhoneNumber(existing)) {
+      return existing;
+    }
+
+    const candidate = generateLocalSequentialNumber();
+    localStorage.setItem(STORAGE_KEY_MY_NUMBER, candidate);
+    return candidate;
+  } catch {
+    return '41160001';
+  }
+}
+
+export function setMyPermanentPhoneNumber(num: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(STORAGE_KEY_MY_NUMBER, num);
+  } catch {}
 }
 
 /**

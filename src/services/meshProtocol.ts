@@ -3,6 +3,7 @@ import { calculateAirtime, DEFAULT_LORA_CONFIG, DutyCycleMonitor } from './loraP
 import { bleBridge } from './bleBridge';
 import { encryptPacketPayload, decryptPacketPayload, DEFAULT_PRIMARY_CHANNEL_KEY } from './cryptoEngine';
 import { audioEngine } from './audioCodec';
+import { getMyPermanentPhoneNumber } from './phoneSystem';
 
 export interface HopPropagationStep {
   packetId: string;
@@ -146,6 +147,7 @@ export class MeshNetworkManager {
       name: 'Canal Geral #Todos',
       username: 'frequencia.geral',
       callsign: 'TODOS-00',
+      phoneNumber: '41160000',
       avatarColor: '#10b981',
       avatarInitials: 'CG',
       bio: 'Canal aberto comunitário para todos os operadores conectados',
@@ -174,6 +176,7 @@ export class MeshNetworkManager {
       name: cleanInitialName,
       username: profile.username,
       callsign: profile.callsign,
+      phoneNumber: profile.phoneNumber || getMyPermanentPhoneNumber(),
       avatarColor: '#10b981',
       avatarInitials: cleanInitialName.slice(0, 2).toUpperCase(),
       bio: profile.bio,
@@ -204,6 +207,35 @@ export class MeshNetworkManager {
       }
     } catch (e) {
       console.warn('Error reading contacts from local storage:', e);
+    }
+
+    if (!contacts || contacts.length === 0) {
+      const defaultPeerTg: MeshNode = {
+        id: 'node_peer_tg',
+        name: 'tg',
+        username: 'tg',
+        callsign: 'TG-67',
+        phoneNumber: '41166788',
+        avatarColor: '#000000',
+        avatarInitials: 'TG',
+        bio: 'Operador LoRa',
+        statusText: 'Online',
+        hardware: 'ESP32 DIY SX1262',
+        role: 'CLIENT',
+        batteryPct: 92,
+        batteryVoltage: 4.1,
+        gps: { lat: 38.722, lng: -9.138, alt: 52 },
+        x: 60,
+        y: 40,
+        antennaDbi: 3.0,
+        isOnline: true,
+        lastHeard: Date.now(),
+        hopsAway: 1,
+        rssi: -48,
+        snr: 12.0,
+        packetsForwarded: 0,
+      };
+      contacts = [defaultPeerTg];
     }
 
     this.nodes = [selfNode, broadcastGroupNode, ...contacts.filter((c) => c.id !== selfNode.id && c.id !== 'group-broadcast')];
@@ -820,7 +852,42 @@ export class MeshNetworkManager {
    * Add a new custom node / contact into the mesh
    */
   private seedInitialMessages(selfId: string): void {
-    this.packets = [];
+    const now = Date.now();
+    this.packets = [
+      {
+        id: 'pkt-seed-canal-geral',
+        timestamp: now - 3600 * 1000,
+        fromNodeId: 'group-broadcast',
+        toNodeId: 'BROADCAST',
+        channelId: 0,
+        hopLimit: 3,
+        hopStart: 3,
+        packetType: 'TEXT_MSG',
+        payloadText: 'Canal aberto comunitário ativo.',
+        encrypted: false,
+        airtimeMs: 120,
+        rssiDbm: -55,
+        snrDb: 9.5,
+        pathTraveled: ['group-broadcast'],
+        likedByMe: true,
+      },
+      {
+        id: 'pkt-seed-tg-oi',
+        timestamp: now - 1800 * 1000,
+        fromNodeId: 'node_peer_tg',
+        toNodeId: selfId,
+        channelId: 1,
+        hopLimit: 2,
+        hopStart: 2,
+        packetType: 'TEXT_MSG',
+        payloadText: 'oi',
+        encrypted: true,
+        airtimeMs: 80,
+        rssiDbm: -48,
+        snrDb: 12.0,
+        pathTraveled: ['node_peer_tg'],
+      },
+    ];
     this.savePacketsToStorage();
   }
 

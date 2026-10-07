@@ -2,19 +2,37 @@ import React from 'react';
 
 interface ContactsIconProps {
   className?: string;
+  outline?: boolean;
 }
 
-export const ContactsIcon: React.FC<ContactsIconProps> = ({ className = 'w-5 h-5' }) => {
+export const ContactsIcon: React.FC<ContactsIconProps> = ({ className = 'w-5 h-5', outline = false }) => {
+  if (outline) {
+    return (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="-9 -9 18 19"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        className={className}
+      >
+        <circle cx="0" cy="-4" r="3.5" />
+        <path d="M-7 8 V5 A7 7 0 0 1 7 5 V8" />
+      </svg>
+    );
+  }
+
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      height="24px"
-      viewBox="0 -960 960 960"
-      width="24px"
+      viewBox="285 617 20 23"
       fill="currentColor"
       className={className}
     >
-      <path d="M185-80q-17 0-29.5-12.5T143-122v-105q0-90 56-159t144-88q-40 28-62 70.5T259-312v190q0 11 3 22t10 20h-87Zm147 0q-17 0-29.5-12.5T290-122v-190q0-70 49.5-119T459-480h189q70 0 119 49t49 119v64q0 70-49 119T648-80H332Zm148-484q-66 0-112-46t-46-112q0-66 46-112t112-46q66 0 112 46t46 112q0 66-46 112t-112 46Z" />
+      <circle cx="295" cy="623" r="4" />
+      <path d="M287 638 V635 A8 8 0 0 1 303 635 V638Z" />
     </svg>
   );
 };
+

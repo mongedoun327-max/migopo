@@ -92,6 +92,10 @@ async function startServer() {
   const pendingOffers = new Map<string, any>();
   const wsClients = new Map<string, Set<WebSocket>>();
 
+  // Sequential 8-digit phone number allocation starting with 41160001
+  let nextPhoneSequence = 1;
+  const assignedPhoneMap = new Map<string, string>(); // nodeId -> 4116XXXX
+
   const server = http.createServer(app);
   const wss = new WebSocketServer({ server, path: '/ws/call' });
 
@@ -315,6 +319,27 @@ async function startServer() {
     });
 
     res.json([broadcastGroupNode, ...registeredNodes]);
+  });
+
+  // Allocate unique sequential 8-digit phone number starting with 41160001
+  app.post('/api/mesh/phone/allocate', (req, res) => {
+    const { nodeId } = req.body;
+    if (!nodeId || typeof nodeId !== 'string') {
+      return res.status(400).json({ error: 'nodeId é obrigatório' });
+    }
+
+    if (assignedPhoneMap.has(nodeId)) {
+      return res.json({ phoneNumber: assignedPhoneMap.get(nodeId), sequence: null });
+    }
+
+    const seqStr = nextPhoneSequence.toString().padStart(4, '0');
+    const phoneNumber = `4116${seqStr}`;
+    assignedPhoneMap.set(nodeId, phoneNumber);
+    const assignedSeq = nextPhoneSequence;
+    nextPhoneSequence++;
+
+    console.log(`[PhoneSystem] Número 4116 gerado para nó ${nodeId}: ${phoneNumber} (#${assignedSeq})`);
+    res.json({ phoneNumber, sequence: assignedSeq });
   });
 
   // Post a real message or voice note packet

@@ -119,67 +119,89 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-[#12161c] border border-slate-800 rounded-3xl max-w-md w-full shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-scaleUp">
-        {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-800/80 flex items-center justify-between bg-black/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
-              <MessageSquarePlus className="w-5 h-5" />
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-fadeIn">
+      <div className="bg-white border border-[#EEEEEE] rounded-[14px] max-w-[368px] w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] animate-scaleUp select-none">
+        {/* Header matching nova-conversa.svg */}
+        <div className="px-3.5 pt-3.5 pb-3 flex items-center justify-between border-b border-[#EEEEEE] bg-white">
+          <div className="flex items-center gap-3">
+            {/* Conversation icon with plus inside */}
+            <div className="relative w-10 h-10 shrink-0">
+              <svg width="40" height="40" viewBox="15 12 38 38" fill="none">
+                <defs>
+                  <linearGradient id="newChatBrandGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#FFBB7D" />
+                    <stop offset="48%" stopColor="#EFD1BE" />
+                    <stop offset="100%" stopColor="#B3BDDC" />
+                  </linearGradient>
+                </defs>
+                <circle cx="34" cy="31" r="19" fill="url(#newChatBrandGrad)" />
+                <path
+                  d="M26 24 H41 A3 3 0 0 1 44 27 V37 A3 3 0 0 1 41 40 H33 L26 45 V40 A3 3 0 0 1 23 37 V27 A3 3 0 0 1 26 24Z"
+                  fill="#000000"
+                />
+                <path d="M34 28 V36 M30 32 H38" stroke="#FFFFFF" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </div>
+
             <div>
-              <h3 className="text-base font-bold text-white leading-tight">
+              <h3 className="text-[18px] font-bold text-black leading-tight">
                 Nova Conversa
               </h3>
-              <p className="text-[11px] text-slate-400 leading-tight">
+              <p className="text-[11px] text-[#777777] leading-tight mt-0.5">
                 Selecione um contacto ou digite um número
               </p>
             </div>
           </div>
 
+          {/* Close button: black circle with white X */}
           <button
             onClick={onClose}
-            className="p-2 text-slate-400 hover:text-white rounded-full hover:bg-slate-800 transition-colors cursor-pointer"
+            className="w-[34px] h-[34px] rounded-full bg-black hover:bg-neutral-800 text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
             title="Fechar"
           >
-            <X className="w-5 h-5" />
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round">
+              <path d="M2 2 L12 12 M12 2 L2 12" />
+            </svg>
           </button>
         </div>
 
         {/* Input Bar: Search / Number */}
-        <div className="p-4 border-b border-slate-800/60 bg-black/20">
-          <div className="flex items-center gap-2.5 px-3.5 py-2.5 bg-[#1f242c] rounded-2xl border border-slate-700/60 focus-within:border-emerald-500 transition-all">
-            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+        <div className="p-3 bg-white">
+          <div className="h-[38px] rounded-[19px] border-[1.2px] border-black bg-white px-3 flex items-center gap-2">
+            <svg width="16" height="16" viewBox="26 106 18 18" fill="none" className="shrink-0">
+              <circle cx="34" cy="114" r="5.5" stroke="#777777" strokeWidth="1.5" />
+              <path d="M38 118 L42 122" stroke="#777777" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Digitar número (ex: 4116 0001) ou nome..."
-              className="bg-transparent border-none text-xs text-white placeholder:text-slate-400 focus:outline-none w-full"
+              className="bg-transparent border-none text-[12px] text-black placeholder:text-[#777777] focus:outline-none w-full"
               autoFocus
             />
             {query && (
               <button
                 onClick={() => setQuery('')}
-                className="text-slate-400 hover:text-white p-0.5"
+                className="text-[#777777] hover:text-black p-0.5 text-xs font-bold cursor-pointer"
               >
-                <X className="w-3.5 h-3.5" />
+                ✕
               </button>
             )}
           </div>
 
           {/* Quick Start Card if number was typed */}
           {isNumberQuery && (
-            <div className="mt-3 p-3 rounded-2xl bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-between gap-3 animate-fadeIn">
+            <div className="mt-2.5 p-2.5 rounded-[13px] bg-neutral-100 border border-neutral-300 flex items-center justify-between gap-3 animate-fadeIn">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center shrink-0">
                   <Phone className="w-4 h-4" />
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-bold text-white truncate">
+                  <div className="text-[12px] font-semibold text-black truncate">
                     Iniciar conversa com número
                   </div>
-                  <div className="text-xs font-mono text-emerald-400 truncate">
+                  <div className="text-[12px] font-mono text-[#777777] truncate">
                     {formatPhoneNumber(clean)}
                   </div>
                 </div>
@@ -187,7 +209,7 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
 
               <button
                 onClick={() => handleStartWithNumber(clean)}
-                className="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 text-xs font-bold rounded-xl transition-all shadow-md shrink-0 cursor-pointer"
+                className="px-3 py-1.5 bg-black hover:bg-neutral-800 active:scale-95 text-white text-[12px] font-semibold rounded-full transition-all shadow-sm shrink-0 cursor-pointer"
               >
                 Conversar
               </button>
@@ -195,15 +217,20 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
           )}
         </div>
 
-        {/* Contacts List */}
-        <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1 divide-y divide-slate-800/40">
-          <div className="px-2 pb-1.5 text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
-            Contactos Existentes ({filteredNodes.length})
+        {/* Section title & divider */}
+        <div className="px-3 pt-1">
+          <div className="text-[12px] font-bold tracking-[0.3px] text-[#777777]">
+            CONTACTOS EXISTENTES ({filteredNodes.length})
           </div>
+          <div className="mt-2 border-b border-[#EEEEEE]" />
+        </div>
 
+        {/* Contacts List */}
+        <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2">
           {filteredNodes.map((contact) => {
             const phone = getNodePhoneNumber(contact.id);
             const formattedPhone = contact.phoneNumber || formatPhoneNumber(phone);
+            const isGroup = contact.isGroup || contact.id === 'group-broadcast';
 
             return (
               <div
@@ -212,64 +239,84 @@ export const NewChatModal: React.FC<NewChatModalProps> = ({
                   onSelectContact(contact.id);
                   onClose();
                 }}
-                className="flex items-center gap-3.5 px-3 py-2.5 rounded-2xl hover:bg-slate-800/60 active:bg-slate-800 cursor-pointer transition-colors group pt-2.5"
+                className="bg-[#FAFAFA] border border-[#EEEEEE] rounded-[15px] p-2.5 flex items-center justify-between hover:bg-neutral-100/70 active:scale-[0.99] cursor-pointer transition-all"
               >
-                {/* Avatar */}
-                <div className="relative shrink-0">
-                  <div
-                    className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-sm text-white shadow-md bg-[#18181b]"
-                    style={{ backgroundColor: contact.avatarColor || '#18181b' }}
-                  >
-                    {contact.avatarInitials || contact.name.slice(0, 2).toUpperCase()}
+                {/* Left: Avatar + Details */}
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Avatar */}
+                  <div className="relative shrink-0">
+                    <div
+                      className={`w-11 h-11 rounded-full flex items-center justify-center font-bold text-[15px] shadow-sm ${
+                        isGroup ? 'text-black' : 'text-white'
+                      }`}
+                      style={{
+                        background: isGroup
+                          ? 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)'
+                          : contact.avatarColor || '#000000',
+                      }}
+                    >
+                      {contact.avatarInitials || contact.name.slice(0, 2).toUpperCase()}
+                    </div>
+                    {/* Presence dot */}
+                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-[#00B98B] border-2 border-white" />
                   </div>
-                  {contact.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#12161c]" />
-                  )}
-                </div>
 
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors truncate">
+                  {/* Name and phone */}
+                  <div className="min-w-0">
+                    <h4 className="text-[15px] font-semibold text-black truncate leading-tight">
                       {contact.name}
                     </h4>
-                    {contact.callsign && (
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded ml-2 shrink-0">
-                        {contact.callsign}
-                      </span>
-                    )}
+                    <p className="text-[13px] text-[#777777] truncate mt-0.5">
+                      {formattedPhone}
+                    </p>
                   </div>
-                  <p className="text-xs font-mono text-slate-400 truncate mt-0.5">
-                    {formattedPhone}
-                  </p>
                 </div>
 
-                {/* Action Icon */}
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-slate-500 group-hover:text-emerald-400 group-hover:bg-slate-700/50 transition-colors shrink-0">
-                  <MessageSquare className="w-4 h-4" />
+                {/* Right: Callsign badge & chat icon */}
+                <div className="flex items-center gap-2 shrink-0 ml-2">
+                  {contact.callsign && (
+                    <span className="bg-[#F0F0F0] border border-[#DDDDDD] px-2 py-0.5 rounded-[5px] text-[10px] text-black font-mono">
+                      {contact.callsign}
+                    </span>
+                  )}
+
+                  <div className="w-7 h-7 flex items-center justify-center">
+                    <svg width="18" height="18" viewBox="274 212 18 20" fill="none" stroke="#000000" strokeWidth="1.4" strokeLinejoin="round">
+                      <path d="M276 214 H287 A2 2 0 0 1 289 216 V226 A2 2 0 0 1 287 228 H278 L276 231 V214Z" />
+                    </svg>
+                  </div>
                 </div>
               </div>
             );
           })}
 
           {filteredNodes.length === 0 && !isNumberQuery && (
-            <div className="text-center py-8 text-slate-400 text-xs">
+            <div className="text-center py-8 text-[#777777] text-xs">
               Nenhum contacto encontrado para "{query}"
             </div>
           )}
         </div>
 
-        {/* Footer: Add new contact to address book */}
+        {/* Footer button matching nova-conversa.svg */}
         {onOpenRegisterNewContact && (
-          <div className="p-3 border-t border-slate-800/80 bg-black/30">
+          <div className="p-3 border-t border-[#EEEEEE] bg-white">
             <button
               onClick={() => {
                 onClose();
                 onOpenRegisterNewContact();
               }}
-              className="w-full py-2.5 px-4 bg-slate-800/80 hover:bg-slate-700 active:scale-98 text-slate-200 hover:text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-colors cursor-pointer"
+              className="w-full h-[52px] rounded-[26px] bg-black hover:bg-neutral-800 active:scale-98 text-white text-[14px] font-semibold flex items-center justify-center gap-3 transition-colors cursor-pointer shadow-md"
             >
-              <UserPlus className="w-4 h-4 text-emerald-400" />
+              <div
+                className="w-[22px] h-[22px] rounded-full flex items-center justify-center text-black"
+                style={{
+                  background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                }}
+              >
+                <svg width="14" height="14" viewBox="38 604 20 16" fill="none" stroke="#000000" strokeWidth="1.4" strokeLinecap="round">
+                  <path d="M43 606 A3 3 0 1 1 49 606 M39 617 V615 A5 5 0 0 1 49 615 M53 607 V615 M49 611 H57" />
+                </svg>
+              </div>
               <span>Cadastrar Novo Contacto na Agenda</span>
             </button>
           </div>

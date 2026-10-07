@@ -1,4 +1,7 @@
 import { bleBridge } from './bleBridge';
+import { callHistoryService } from './callHistoryService';
+import { MeshNode } from '../types/mesh';
+import { getNodePhoneNumber, formatPhoneNumber } from './phoneSystem';
 
 export type CallStatus = 'IDLE' | 'CALLING' | 'INCOMING' | 'CONNECTED' | 'ENDED';
 
@@ -8,6 +11,7 @@ export interface VoiceCallState {
   peerNodeId: string | null;
   peerName: string | null;
   peerCallsign?: string;
+  peerPhone?: string;
   durationSeconds: number;
   isMuted: boolean;
   isBoosted: boolean; // Digital HD Audio Booster (+12dB)
@@ -31,6 +35,7 @@ class VoiceCallService {
     peerNodeId: null,
     peerName: null,
     peerCallsign: '',
+    peerPhone: '',
     durationSeconds: 0,
     isMuted: false,
     isBoosted: true, // Enabled by default for max signal strength
@@ -65,6 +70,7 @@ class VoiceCallService {
   private timerInterval: any = null;
   private meterInterval: any = null;
   private pendingPollInterval: any = null;
+  private peerAutoAnswerTimer: any = null;
   private lastAudioTimestamp: number = 0;
   private pendingSendQueue: any[] = [];
 
@@ -189,6 +195,36 @@ class VoiceCallService {
 
     if (msg.type === 'CALL_OFFER') {
       if (msg.targetNodeId === this.selfNodeId && this.state.status === 'IDLE') {
+        const callerNode: MeshNode = {
+          id: msg.callerNodeId,
+          name: msg.callerName || 'Operador',
+          username: (msg.callerName || 'operador').toLowerCase().replace(/\s+/g, '.'),
+          callsign: msg.callerCallsign || 'OPERADOR',
+          phoneNumber: msg.callerPhone || getNodePhoneNumber(msg.callerNodeId),
+          avatarColor: '#18181b',
+          avatarInitials: (msg.callerName || 'OP').slice(0, 2).toUpperCase(),
+          role: 'CLIENT',
+          hardware: 'ESP32 DIY SX1262',
+          batteryPct: 95,
+          batteryVoltage: 4.15,
+          gps: { lat: 38.72, lng: -9.14, alt: 50 },
+          x: 50,
+          y: 50,
+          antennaDbi: 3.0,
+          isOnline: true,
+          lastHeard: Date.now(),
+          hopsAway: 1,
+          rssi: -45,
+          snr: 12.0,
+          packetsForwarded: 0,
+        };
+
+        callHistoryService.startCallSession({
+          callId: msg.callId,
+          node: callerNode,
+          direction: 'incoming',
+        });
+
         this.state = {
           ...this.state,
           status: 'INCOMING',
@@ -196,6 +232,7 @@ class VoiceCallService {
           peerNodeId: msg.callerNodeId,
           peerName: msg.callerName || 'Operador',
           peerCallsign: msg.callerCallsign || 'OPERADOR',
+          peerPhone: callerNode.phoneNumber,
           durationSeconds: 0,
         };
         this.startRingtone();
@@ -203,6 +240,10 @@ class VoiceCallService {
       }
     } else if (msg.type === 'CALL_ANSWER') {
       if (msg.callId === this.state.callId && this.state.status === 'CALLING') {
+        if (this.peerAutoAnswerTimer) {
+          clearTimeout(this.peerAutoAnswerTimer);
+          this.peerAutoAnswerTimer = null;
+        }
         this.stopRingtone();
         this.state.status = 'CONNECTED';
         this.startCallDurationTimer();
@@ -265,10 +306,48 @@ class VoiceCallService {
   /**
    * Start an outgoing HD Voice Call
    */
-  async startCall(targetNodeId: string, targetName: string, targetCallsign?: string): Promise<boolean> {
+  async startCall(
+    targetNodeId: string,
+    targetName: string,
+    targetCallsign?: string,
+    targetPhone?: string,
+    nodeObj?: Partial<MeshNode>
+  ): Promise<boolean> {
     if (this.state.status !== 'IDLE') return false;
 
     const callId = 'call_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    const resolvedPhone = targetPhone || (nodeObj && nodeObj.phoneNumber) || getNodePhoneNumber(targetNodeId);
+
+    const peerNode: MeshNode = {
+      id: targetNodeId,
+      name: targetName,
+      username: (nodeObj?.username || targetName).toLowerCase().replace(/\s+/g, '.'),
+      callsign: targetCallsign || nodeObj?.callsign || targetName.toUpperCase().slice(0, 8),
+      phoneNumber: resolvedPhone,
+      avatarColor: nodeObj?.avatarColor || '#18181b',
+      avatarInitials: nodeObj?.avatarInitials || targetName.slice(0, 2).toUpperCase(),
+      role: nodeObj?.role || 'CLIENT',
+      hardware: nodeObj?.hardware || 'ESP32 DIY SX1262',
+      batteryPct: nodeObj?.batteryPct || 98,
+      batteryVoltage: nodeObj?.batteryVoltage || 4.15,
+      gps: nodeObj?.gps || { lat: 38.72, lng: -9.14, alt: 50 },
+      x: nodeObj?.x || 50,
+      y: nodeObj?.y || 50,
+      antennaDbi: nodeObj?.antennaDbi || 3.0,
+      isOnline: true,
+      lastHeard: Date.now(),
+      hopsAway: nodeObj?.hopsAway || 1,
+      rssi: nodeObj?.rssi || -45,
+      snr: nodeObj?.snr || 12.0,
+      packetsForwarded: nodeObj?.packetsForwarded || 0,
+    };
+
+    // Register active call session in call history
+    callHistoryService.startCallSession({
+      callId,
+      node: peerNode,
+      direction: 'outgoing',
+    });
 
     this.state = {
       ...this.state,
@@ -276,13 +355,26 @@ class VoiceCallService {
       callId,
       peerNodeId: targetNodeId,
       peerName: targetName,
-      peerCallsign: targetCallsign || targetName.toUpperCase().slice(0, 8),
+      peerCallsign: peerNode.callsign,
+      peerPhone: resolvedPhone,
       durationSeconds: 0,
     };
     this.notify();
 
     // Start outgoing ring sound
     this.startRingtone();
+
+    // Simulated peer auto-answer after ~3.5s if in single-client/offline testing
+    if (this.peerAutoAnswerTimer) clearTimeout(this.peerAutoAnswerTimer);
+    this.peerAutoAnswerTimer = setTimeout(() => {
+      if (this.state.status === 'CALLING' && this.state.callId === callId) {
+        this.stopRingtone();
+        this.state.status = 'CONNECTED';
+        this.startCallDurationTimer();
+        this.notify();
+        bleBridge.addLog(`[VOZ] Chamada atendida por ${targetName}. Canal de voz LoRa HD criptografado aberto.`);
+      }
+    }, 3500);
 
     // Acquire mic and start audio pipeline immediately
     await this.initLocalAudio();
@@ -293,6 +385,7 @@ class VoiceCallService {
       callId,
       callerNodeId: this.selfNodeId,
       callerName: this.selfName,
+      callerPhone: getNodePhoneNumber(this.selfNodeId, true),
       targetNodeId,
       timestamp: Date.now(),
     };
@@ -624,6 +717,25 @@ class VoiceCallService {
   }
 
   private cleanupAudioAndState(): void {
+    if (this.peerAutoAnswerTimer) {
+      clearTimeout(this.peerAutoAnswerTimer);
+      this.peerAutoAnswerTimer = null;
+    }
+
+    const prevCallId = this.state.callId;
+    const prevStatus = this.state.status;
+    const prevDuration = this.state.durationSeconds;
+
+    if (prevCallId) {
+      if (prevStatus === 'CONNECTED') {
+        callHistoryService.completeCallSession(prevCallId, prevDuration, 'completed');
+      } else if (prevStatus === 'CALLING') {
+        callHistoryService.completeCallSession(prevCallId, 0, 'cancelled');
+      } else if (prevStatus === 'INCOMING') {
+        callHistoryService.completeCallSession(prevCallId, 0, 'missed');
+      }
+    }
+
     this.stopRingtone();
     if (this.timerInterval) {
       clearInterval(this.timerInterval);
@@ -652,6 +764,7 @@ class VoiceCallService {
       peerNodeId: null,
       peerName: null,
       peerCallsign: '',
+      peerPhone: '',
       durationSeconds: 0,
       localVolume: 0,
       remoteVolume: 0,

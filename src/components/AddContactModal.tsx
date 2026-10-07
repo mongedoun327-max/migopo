@@ -80,36 +80,47 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#090d10] text-white flex flex-col font-sans select-none animate-fadeIn overflow-y-auto">
-      <div className="max-w-md mx-auto w-full min-h-screen flex flex-col justify-between">
+    <div className="fixed inset-0 z-50 bg-white text-black flex flex-col font-sans select-none animate-fadeIn overflow-y-auto">
+      <div className="max-w-[368px] mx-auto w-full min-h-screen flex flex-col justify-between bg-white">
         {/* Top Header */}
         <div>
-          <div className="h-16 px-5 flex items-center justify-between border-b border-slate-900/80 bg-[#090d10]">
+          <div className="h-[60px] px-5 flex items-center justify-between border-b border-[#EEEEEE] bg-white">
             <div className="flex items-center">
               <button
                 type="button"
                 onClick={onClose}
-                className="p-2 -ml-2 text-white hover:text-slate-300 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
+                className="p-1 -ml-1 text-black hover:opacity-70 transition-opacity cursor-pointer"
                 title="Voltar"
               >
-                <ArrowLeft className="w-6 h-6 stroke-[2.2]" />
+                <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+                  <path
+                    d="M34 20 H18 M18 20 L25 13 M18 20 L25 27"
+                    stroke="#000000"
+                    strokeWidth="2.2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
 
-              <h1 className="text-xl font-normal text-white ml-3 tracking-tight">
-                Novo contacto
+              <h1 className="text-[25px] font-normal tracking-[-0.6px] text-black ml-4">
+                Novo contato
               </h1>
             </div>
             <div className="w-6" />
           </div>
 
           {/* Form Fields Body */}
-          <form onSubmit={handleSave} className="px-5 pt-8 space-y-6">
+          <form onSubmit={handleSave} className="px-5 pt-7 space-y-6">
             {/* Field: User Icon + Nome próprio */}
-            <div className="flex items-center gap-4">
-              <div className="w-7 shrink-0 flex items-center justify-center text-[#8e9aa8]">
-                <User className="w-5 h-5 stroke-[1.8]" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 shrink-0 flex items-center justify-center">
+                <svg width="22" height="22" viewBox="18 106 22 22" fill="none" stroke="#000000" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="30" cy="113" r="4" />
+                  <path d="M23 126 V123 A7 7 0 0 1 37 123 V126" />
+                </svg>
               </div>
-              <div className="flex-1 bg-[#13171d] border border-slate-700/60 focus-within:border-emerald-500 rounded-xl px-4 py-3.5 transition-colors">
+              <div className="flex-1 bg-white border-[1.4px] border-black rounded-[13px] px-4 h-[54px] flex items-center">
                 <input
                   type="text"
                   value={firstName}
@@ -118,19 +129,21 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                     setErrorMessage('');
                   }}
                   placeholder="Nome próprio"
-                  className="bg-transparent border-none text-sm text-white placeholder:text-[#8e9aa8] focus:outline-none w-full"
+                  className="bg-transparent border-none text-[14px] text-black placeholder:text-[#777777] focus:outline-none w-full"
                   autoFocus
                 />
               </div>
             </div>
 
             {/* Field: Phone Icon + Telemóvel */}
-            <div className="flex items-center gap-4">
-              <div className="w-7 shrink-0 flex items-center justify-center text-[#8e9aa8]">
-                <Phone className="w-5 h-5 stroke-[1.8]" />
+            <div className="flex items-center gap-3">
+              <div className="w-9 shrink-0 flex items-center justify-center">
+                <svg width="24" height="24" viewBox="20 185 26 28" fill="none" stroke="#000000" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M23 190 C23 188.5 24.5 187.5 26 188 L29 189.5 L31 194 L28.5 196 C30.5 200 33 202.5 37 204.5 L39 202 L43 204 L44 207.5 C44.5 209 43.5 210.5 42 210.5 C32.5 209.8 23.5 200.8 23 190Z" />
+                </svg>
               </div>
 
-              <div className="flex-1 bg-[#13171d] border border-slate-700/60 focus-within:border-emerald-500 rounded-xl px-4 py-3.5 transition-colors">
+              <div className="flex-1 bg-white border-[1.4px] border-black rounded-[13px] px-4 h-[54px] flex items-center">
                 <input
                   type="tel"
                   value={phoneInput}
@@ -139,47 +152,52 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
                     setErrorMessage('');
                   }}
                   placeholder="Telemóvel"
-                  className="bg-transparent border-none text-sm text-white placeholder:text-[#8e9aa8] focus:outline-none w-full"
+                  className="bg-transparent border-none text-[14px] text-black placeholder:text-[#777777] focus:outline-none w-full"
                 />
               </div>
             </div>
 
             {/* Field: Sync Toggle Row */}
-            <div className="flex items-start gap-4 pt-2">
-              <div className="w-7 shrink-0 flex items-center justify-center text-[#8e9aa8] pt-1">
-                <RefreshCw className="w-5 h-5 stroke-[1.8]" />
+            <div className="flex items-start gap-3 pt-2">
+              <div className="w-9 shrink-0 flex items-center justify-center pt-1">
+                <svg width="22" height="22" viewBox="20 263 22 20" fill="none" stroke="#000000" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M24 273 A8 8 0 0 1 38 267" />
+                  <path d="M38 267 V273 H32" />
+                  <path d="M38 273 A8 8 0 0 1 24 279" />
+                  <path d="M24 279 V273 H30" />
+                </svg>
               </div>
 
-              <div className="flex-1 flex items-center justify-between gap-4">
-                <div className="pr-2">
-                  <h4 className="text-sm font-normal text-slate-100 leading-tight">
-                    Sincronizar contacto no telemóvel
+              <div className="flex-1 flex items-center justify-between gap-3">
+                <div className="pr-1">
+                  <h4 className="text-[16px] font-semibold text-black leading-tight">
+                    Sincronizar contatos no telemóvel
                   </h4>
-                  <p className="text-xs text-[#8e9aa8] mt-1 leading-relaxed">
+                  <p className="text-[13px] text-[#777777] mt-1 leading-snug">
                     Só os contactos com número de telemóvel podem ser sincronizados
                   </p>
                 </div>
 
-                {/* Toggle Switch */}
+                {/* Toggle Switch matching SVG */}
                 <button
                   type="button"
                   onClick={() => setIsSyncEnabled(!isSyncEnabled)}
-                  className={`w-12 h-7 rounded-full transition-colors flex items-center p-0.5 shrink-0 cursor-pointer ${
+                  className={`w-12 h-7 rounded-[14px] transition-colors flex items-center px-1 shrink-0 cursor-pointer ${
                     isSyncEnabled
-                      ? 'bg-emerald-500 border border-emerald-400 justify-end'
-                      : 'bg-[#242b33] border border-slate-700 justify-start'
+                      ? 'bg-black border border-black justify-end'
+                      : 'bg-[#EEEEEE] border border-black justify-start'
                   }`}
                   title="Alternar sincronização"
                 >
                   <div
-                    className={`w-6 h-6 rounded-full flex items-center justify-center shadow-md transition-all ${
-                      isSyncEnabled ? 'bg-white text-slate-950 font-bold' : 'bg-[#8e9aa8] text-slate-950'
+                    className={`w-5 h-5 rounded-full flex items-center justify-center transition-all ${
+                      isSyncEnabled ? 'bg-white text-black' : 'bg-black text-white'
                     }`}
                   >
                     {!isSyncEnabled ? (
-                      <span className="w-2.5 h-0.5 bg-slate-900 rounded-full" />
+                      <span className="w-2 h-0.5 bg-white rounded-full" />
                     ) : (
-                      <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-600" />
+                      <span className="w-1.5 h-1.5 bg-black rounded-full" />
                     )}
                   </div>
                 </button>
@@ -187,7 +205,7 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             </div>
 
             {errorMessage && (
-              <div className="p-3 bg-red-950/40 border border-red-900/60 rounded-xl text-xs text-red-400 flex items-center gap-2 animate-fadeIn">
+              <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-600 flex items-center gap-2 animate-fadeIn">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{errorMessage}</span>
               </div>
@@ -201,10 +219,10 @@ export const AddContactModal: React.FC<AddContactModalProps> = ({
             type="button"
             onClick={handleSave}
             disabled={!isFormValid}
-            className={`w-full py-4 rounded-full font-medium text-base text-center transition-all ${
+            className={`w-full h-[56px] rounded-[28px] font-medium text-[16px] text-center transition-all ${
               isFormValid
-                ? 'bg-[#22c55e] hover:bg-[#16a34a] active:scale-98 text-slate-950 font-bold shadow-lg shadow-emerald-950/30 cursor-pointer'
-                : 'bg-[#181d24] text-[#556372] cursor-not-allowed'
+                ? 'bg-black hover:bg-neutral-800 active:scale-98 text-white font-medium shadow-md cursor-pointer'
+                : 'bg-[#EEEEEE] text-[#888888] cursor-not-allowed'
             }`}
           >
             Guardar

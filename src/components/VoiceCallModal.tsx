@@ -14,6 +14,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { voiceCallService, VoiceCallState } from '../services/voiceCallService';
+import { formatPhoneNumber } from '../services/phoneSystem';
 
 interface VoiceCallModalProps {
   callState: VoiceCallState;
@@ -29,66 +30,72 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ callState }) => 
   // -------------------------------------------------------------
   if (callState.status === 'INCOMING') {
     return (
-      <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-        <div className="bg-slate-950 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-6 shadow-2xl relative overflow-hidden">
-          {/* Background Ambient Glow */}
-          <div className="absolute -top-16 -left-16 w-44 h-44 bg-emerald-500/20 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-16 -right-16 w-44 h-44 bg-teal-500/20 rounded-full blur-3xl pointer-events-none" />
-
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-fadeIn">
+        <div className="bg-white border border-[#EEEEEE] rounded-[14px] max-w-[368px] w-full p-6 text-center space-y-6 shadow-2xl relative select-none animate-scaleUp">
           {/* Incoming Header */}
           <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-400 flex items-center justify-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-              Chamada de Voz em Direto
-            </span>
-            <h2 className="text-xl font-bold text-white truncate px-2">
+            <div className="flex items-center justify-center gap-2">
+              <div
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                }}
+              />
+              <span className="text-[12px] font-bold uppercase tracking-[0.4px] text-[#777777]">
+                CHAMADA RECEBIDA
+              </span>
+            </div>
+
+            <h2 className="text-[23px] font-semibold text-black truncate px-2 mt-1">
               {callState.peerName || 'Operador'}
             </h2>
-            <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
-              <Radio className="w-3 h-3 text-emerald-400" />
-              <span>{callState.peerCallsign || 'REDE LORA'}</span>
-            </div>
-          </div>
-
-          {/* Pulsing Avatar */}
-          <div className="relative flex items-center justify-center my-4">
-            <div className="absolute w-28 h-28 rounded-full border-2 border-emerald-500/30 animate-ping" />
-            <div className="w-24 h-24 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-3xl shadow-xl shadow-emerald-500/30 z-10">
-              {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
-            </div>
-          </div>
-
-          {/* Signal Guarantee Indicator */}
-          <div className="p-3 bg-slate-900/90 rounded-2xl border border-slate-800 text-xs space-y-1 text-left">
-            <div className="flex items-center justify-between font-semibold text-emerald-300">
-              <span className="flex items-center gap-1.5">
-                <Signal className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Sinal 100% Forte Garantido</span>
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-950 border border-emerald-700/60 font-mono">
-                HD OPUS
-              </span>
-            </div>
-            <p className="text-[10px] text-slate-400 leading-relaxed">
-              Ligação com roteamento adaptativo sem limites de distância ou região.
+            <p className="text-[13px] text-[#777777]">
+              {callState.peerPhone
+                ? formatPhoneNumber(callState.peerPhone)
+                : callState.peerCallsign || '4116 0000'}
             </p>
           </div>
 
+          {/* Avatar with concentric outer ring */}
+          <div className="relative flex items-center justify-center py-2">
+            <div className="w-32 h-32 rounded-full border border-[#F0F0F0] flex items-center justify-center">
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-[32px] text-black shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                }}
+              >
+                {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
+              </div>
+            </div>
+          </div>
+
+          {/* Signal box */}
+          <div className="h-[42px] rounded-[15px] border-[1.2px] border-black bg-white px-4 flex items-center justify-center gap-3">
+            <div className="flex items-end gap-1">
+              <span className="w-[2px] h-[6px] bg-black rounded-[1px]" />
+              <span className="w-[2px] h-[10px] bg-black rounded-[1px]" />
+              <span className="w-[2px] h-[14px] bg-black rounded-[1px]" />
+              <span className="w-[2px] h-[18px] bg-black rounded-[1px]" />
+            </div>
+            <span className="text-[13px] text-[#777777]">
+              Sinal calibrado para qualidade cristalina
+            </span>
+          </div>
+
           {/* Action Buttons: Accept / Reject */}
-          <div className="grid grid-cols-2 gap-3 pt-2">
+          <div className="grid grid-cols-2 gap-3 pt-1">
             <button
               onClick={() => voiceCallService.rejectCall()}
-              className="py-3 px-4 rounded-2xl bg-slate-900 hover:bg-red-950/60 text-slate-300 hover:text-red-400 border border-slate-800 hover:border-red-900/60 transition-all font-semibold text-xs flex items-center justify-center gap-2"
+              className="h-[52px] rounded-[26px] bg-[#EEEEEE] hover:bg-neutral-200 active:scale-95 text-black font-semibold text-[14px] transition-all cursor-pointer flex items-center justify-center gap-2"
             >
-              <PhoneOff className="w-4 h-4 text-red-400" />
               <span>Recusar</span>
             </button>
 
             <button
               onClick={() => voiceCallService.acceptCall()}
-              className="py-3 px-4 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 transition-all font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/30 active:scale-95"
+              className="h-[52px] rounded-[26px] bg-black hover:bg-neutral-800 text-white transition-all font-semibold text-[14px] flex items-center justify-center gap-2 shadow-md active:scale-95 cursor-pointer"
             >
-              <PhoneCall className="w-4 h-4" />
               <span>Atender</span>
             </button>
           </div>
@@ -98,43 +105,72 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ callState }) => 
   }
 
   // -------------------------------------------------------------
-  // 2. OUTGOING CALLING SCREEN
+  // 2. OUTGOING CALLING SCREEN matching chamada-em-andamento.svg
   // -------------------------------------------------------------
   if (callState.status === 'CALLING') {
     return (
-      <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-        <div className="bg-slate-950 border border-slate-800 rounded-3xl max-w-sm w-full p-6 text-center space-y-6 shadow-2xl">
+      <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-fadeIn">
+        <div className="bg-white border border-[#EEEEEE] rounded-[14px] max-w-[368px] w-full p-6 text-center space-y-6 shadow-2xl relative select-none animate-scaleUp">
+          {/* Status Header */}
           <div className="space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center justify-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-              A chamar...
-            </span>
-            <h2 className="text-xl font-bold text-white truncate px-2">
+            <div className="flex items-center justify-center gap-2">
+              <div
+                className="w-2.5 h-2.5 rounded-full shrink-0"
+                style={{
+                  background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                }}
+              />
+              <span className="text-[12px] font-bold uppercase tracking-[0.4px] text-[#777777]">
+                A CHAMAR...
+              </span>
+            </div>
+
+            <h2 className="text-[23px] font-semibold text-black truncate px-2 mt-2">
               {callState.peerName || 'Operador'}
             </h2>
-            <p className="text-xs text-slate-400">
-              A sincronizar canal e reforçar sinal de voz...
+            <p className="text-[13px] text-[#777777] mt-1 font-mono">
+              {callState.peerPhone
+                ? formatPhoneNumber(callState.peerPhone)
+                : callState.peerCallsign || 'A sincronizar canal...'}
             </p>
           </div>
 
-          {/* Pulsing Avatar */}
-          <div className="relative flex items-center justify-center my-4">
-            <div className="absolute w-28 h-28 rounded-full border border-amber-500/20 animate-ping" />
-            <div className="w-24 h-24 rounded-full bg-slate-900 border-2 border-slate-800 flex items-center justify-center text-slate-200 font-bold text-3xl shadow-xl z-10">
-              {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
+          {/* Avatar with concentric outer ring */}
+          <div className="relative flex items-center justify-center py-2">
+            <div className="w-32 h-32 rounded-full border border-[#F0F0F0] flex items-center justify-center">
+              <div
+                className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-[32px] text-black shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                }}
+              >
+                {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
+              </div>
             </div>
           </div>
 
-          <div className="p-3 bg-slate-900/60 rounded-2xl border border-slate-800 text-xs text-slate-400 flex items-center justify-center gap-2">
-            <Signal className="w-4 h-4 text-emerald-400" />
-            <span>Sinal calibrado para qualidade cristalina</span>
+          {/* Qualidade do sinal box matching SVG */}
+          <div className="h-[42px] rounded-[15px] border-[1.2px] border-black bg-white px-4 flex items-center justify-center gap-3">
+            <div className="flex items-end gap-1">
+              <span className="w-[2px] h-[6px] bg-black rounded-[1px]" />
+              <span className="w-[2px] h-[10px] bg-black rounded-[1px]" />
+              <span className="w-[2px] h-[14px] bg-black rounded-[1px]" />
+              <span className="w-[2px] h-[18px] bg-black rounded-[1px]" />
+            </div>
+            <span className="text-[13px] text-[#777777]">
+              Sinal calibrado para qualidade cristalina
+            </span>
           </div>
 
+          {/* Cancelar Chamada button matching SVG */}
           <button
             onClick={() => voiceCallService.hangup()}
-            className="w-full py-3 rounded-2xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-red-950 transition-all active:scale-95"
+            className="w-full h-[54px] rounded-[27px] bg-black hover:bg-neutral-800 active:scale-98 text-white font-semibold text-[15px] flex items-center justify-center gap-3 shadow-xl transition-all cursor-pointer"
           >
-            <PhoneOff className="w-4 h-4" />
+            <svg width="24" height="24" viewBox="134 348 30 32" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M139 355 C139 353.5 140.5 352.5 142 353 L146 354.5 L148 359.5 L145.5 361.5 C147.5 365.5 150 368 154 370 L156 367.5 L161 369.5 L162.5 373.5 C163 375 162 376.5 160.5 376.5 C151 375.8 140 366.8 139 355Z" />
+              <path d="M137 351 L163 378" />
+            </svg>
             <span>Cancelar Chamada</span>
           </button>
         </div>
@@ -147,26 +183,31 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ callState }) => 
   // -------------------------------------------------------------
   if (isMinimized && callState.status === 'CONNECTED') {
     return (
-      <div className="fixed top-3 right-4 z-50 flex items-center gap-2.5 p-2 bg-slate-950/95 border border-emerald-500/40 rounded-full shadow-2xl backdrop-blur-md animate-fadeIn">
-        <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950 font-bold text-xs">
+      <div className="fixed top-4 right-4 z-50 flex items-center gap-2.5 p-2 bg-white border border-[#EEEEEE] rounded-full shadow-2xl animate-fadeIn">
+        <div
+          className="w-8 h-8 rounded-full flex items-center justify-center text-black font-bold text-xs"
+          style={{
+            background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+          }}
+        >
           {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
         </div>
 
         <div className="flex flex-col pr-1">
           <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-xs font-bold text-white truncate max-w-[100px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00B98B] animate-pulse" />
+            <span className="text-xs font-semibold text-black truncate max-w-[100px]">
               {callState.peerName}
             </span>
           </div>
-          <span className="text-[10px] font-mono text-emerald-400">
+          <span className="text-[10px] font-mono text-[#777777]">
             {voiceCallService.formatDuration(callState.durationSeconds)}
           </span>
         </div>
 
         <button
           onClick={() => setIsMinimized(false)}
-          className="p-1.5 rounded-full bg-slate-900 hover:bg-slate-800 text-slate-300 transition-colors"
+          className="p-1.5 rounded-full bg-neutral-100 hover:bg-neutral-200 text-black transition-colors cursor-pointer"
           title="Expandir Chamada"
         >
           <Maximize2 className="w-3.5 h-3.5" />
@@ -174,7 +215,7 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ callState }) => 
 
         <button
           onClick={() => voiceCallService.hangup()}
-          className="p-1.5 rounded-full bg-red-600 hover:bg-red-500 text-white transition-colors"
+          className="p-1.5 rounded-full bg-black hover:bg-neutral-800 text-white transition-colors cursor-pointer"
           title="Desligar Chamada"
         >
           <PhoneOff className="w-3.5 h-3.5" />
@@ -187,139 +228,110 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ callState }) => 
   // 4. FULL CONNECTED IN-CALL SCREEN
   // -------------------------------------------------------------
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-      <div className="bg-slate-950 border border-slate-800 rounded-3xl max-w-md w-full p-6 text-center space-y-6 shadow-2xl relative overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3 animate-fadeIn">
+      <div className="bg-white border border-[#EEEEEE] rounded-[14px] max-w-[368px] w-full p-6 text-center space-y-5 shadow-2xl relative select-none animate-scaleUp">
         {/* Top Controls: Minimize & Encryption */}
-        <div className="flex items-center justify-between text-xs text-slate-400 pb-2 border-b border-slate-900">
-          <div className="flex items-center gap-1.5 text-emerald-400 font-medium text-[11px]">
-            <ShieldCheck className="w-3.5 h-3.5" />
+        <div className="flex items-center justify-between text-xs text-[#777777] pb-2 border-b border-[#EEEEEE]">
+          <div className="flex items-center gap-1.5 text-black font-medium text-[11px]">
+            <ShieldCheck className="w-3.5 h-3.5 text-black" />
             <span>Voz Criptografada P2P</span>
           </div>
 
           <button
             onClick={() => setIsMinimized(true)}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900 transition-colors"
+            className="p-1 rounded-lg text-black hover:bg-neutral-100 transition-colors cursor-pointer"
             title="Minimizar chamada"
           >
             <Minimize2 className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Peer Info & Duration */}
+        {/* Status Header */}
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-white truncate px-4">
+          <div className="flex items-center justify-center gap-2">
+            <div
+              className="w-2.5 h-2.5 rounded-full shrink-0"
+              style={{
+                background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+              }}
+            />
+            <span className="text-[12px] font-bold uppercase tracking-[0.4px] text-[#777777]">
+              EM CHAMADA
+            </span>
+          </div>
+
+          <h2 className="text-[23px] font-semibold text-black truncate px-2 mt-1">
             {callState.peerName}
           </h2>
-          <div className="text-sm font-mono font-bold text-emerald-400 tracking-wider">
+          <div className="text-[14px] font-mono font-medium text-black">
             {voiceCallService.formatDuration(callState.durationSeconds)}
           </div>
         </div>
 
-        {/* Peer Avatar & Live Sound Wave Rings */}
+        {/* Avatar with concentric outer ring */}
         <div className="relative flex items-center justify-center py-2">
-          {/* Animated sound wave bars when voice active */}
-          <div
-            className={`absolute w-36 h-36 rounded-full border-2 border-emerald-500/20 transition-all duration-200 ${
-              callState.localVolume > 10 || callState.remoteVolume > 10 ? 'scale-110 border-emerald-400/40' : 'scale-100'
-            }`}
-          />
-          <div
-            className={`absolute w-44 h-44 rounded-full border border-teal-500/10 transition-all duration-300 ${
-              callState.localVolume > 20 || callState.remoteVolume > 20 ? 'scale-115 border-teal-400/30' : 'scale-95'
-            }`}
-          />
-
-          <div className="w-28 h-28 rounded-full bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-slate-950 font-bold text-4xl shadow-2xl shadow-emerald-500/30 z-10">
-            {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
-          </div>
-        </div>
-
-        {/* Dynamic Voice Visualizer Waveform */}
-        <div className="flex items-center justify-center gap-1.5 h-8 px-6">
-          {[12, 28, 45, 75, 95, 60, 80, 40, 90, 65, 30, 15].map((baseHeight, i) => {
-            const dynamicScale = Math.max(
-              0.2,
-              Math.min(1.0, (callState.localVolume + callState.remoteVolume + 15) / 100)
-            );
-            const height = Math.max(4, Math.round(baseHeight * dynamicScale));
-            return (
-              <div
-                key={i}
-                className="w-1.5 bg-emerald-400 rounded-full transition-all duration-75"
-                style={{ height: `${height}px` }}
-              />
-            );
-          })}
-        </div>
-
-        {/* Signal Quality & Strong Connection Guarantee Card */}
-        <div className="p-3.5 bg-slate-900/80 rounded-2xl border border-slate-800 space-y-2 text-left">
-          <div className="flex items-center justify-between text-xs">
-            <span className="font-bold text-white flex items-center gap-1.5">
-              <Signal className="w-4 h-4 text-emerald-400" />
-              <span>Sinal Excelente ({callState.signalQuality.percentage}%)</span>
-            </span>
-            <div className="flex items-center gap-1">
-              {[1, 2, 3, 4, 5].map((bar) => (
-                <div
-                  key={bar}
-                  className={`w-1 rounded-full ${
-                    bar <= callState.signalQuality.bars ? 'bg-emerald-400 h-3.5' : 'bg-slate-700 h-2'
-                  }`}
-                />
-              ))}
+          <div className="w-32 h-32 rounded-full border border-[#F0F0F0] flex items-center justify-center">
+            <div
+              className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-[32px] text-black shadow-lg"
+              style={{
+                background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+              }}
+            >
+              {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
             </div>
           </div>
-
-          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
-            <span>Potência: {callState.signalQuality.rssiDbm} dBm</span>
-            <span>SNR: +{callState.signalQuality.snrDb} dB</span>
-            <span className="text-emerald-400">Latência: 16ms</span>
-          </div>
-
-          <div className="pt-1.5 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
-            <span>Roteamento: {callState.signalQuality.relayPath}</span>
-            <span className="text-slate-300 font-medium">Qualquer Região</span>
-          </div>
         </div>
 
-        {/* In-Call Actions */}
-        <div className="flex items-center justify-center gap-4 pt-1">
+        {/* Signal quality box */}
+        <div className="h-[42px] rounded-[15px] border-[1.2px] border-black bg-white px-4 flex items-center justify-center gap-3">
+          <div className="flex items-end gap-1">
+            <span className="w-[2px] h-[6px] bg-black rounded-[1px]" />
+            <span className="w-[2px] h-[10px] bg-black rounded-[1px]" />
+            <span className="w-[2px] h-[14px] bg-black rounded-[1px]" />
+            <span className="w-[2px] h-[18px] bg-black rounded-[1px]" />
+          </div>
+          <span className="text-[13px] text-[#777777]">
+            Sinal calibrado para qualidade cristalina
+          </span>
+        </div>
+
+        {/* In-Call Controls: Mute, Boost, Hangup */}
+        <div className="grid grid-cols-3 gap-3 pt-1">
           {/* Mute Mic */}
           <button
             onClick={() => voiceCallService.toggleMute()}
-            className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all ${
+            className={`h-[50px] rounded-[16px] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
               callState.isMuted
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800'
+                ? 'bg-black text-white'
+                : 'bg-[#FAFAFA] border border-[#EEEEEE] text-black hover:bg-neutral-100'
             }`}
             title={callState.isMuted ? 'Desativar Mudo' : 'Silenciar Microfone'}
           >
-            {callState.isMuted ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
+            {callState.isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
             <span className="text-[9px] font-medium">{callState.isMuted ? 'Mudo' : 'Micro'}</span>
           </button>
 
           {/* Super Signal Booster (+12dB Amplifier) */}
           <button
             onClick={() => voiceCallService.toggleBoost()}
-            className={`w-13 h-13 rounded-2xl flex flex-col items-center justify-center gap-1 transition-all ${
+            className={`h-[50px] rounded-[16px] flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
               callState.isBoosted
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-500/20'
-                : 'bg-slate-900 hover:bg-slate-800 text-slate-400 border border-slate-800'
+                ? 'bg-black text-white'
+                : 'bg-[#FAFAFA] border border-[#EEEEEE] text-black hover:bg-neutral-100'
             }`}
             title="Amplificador digital de sinal e volume de voz (+12dB)"
           >
-            <Zap className={`w-5 h-5 ${callState.isBoosted ? 'text-emerald-400' : 'text-slate-400'}`} />
+            <Zap className="w-4 h-4" />
             <span className="text-[9px] font-bold">{callState.isBoosted ? '+12dB HD' : 'Normal'}</span>
           </button>
 
-          {/* End Call (Red Button) */}
+          {/* End Call */}
           <button
             onClick={() => voiceCallService.hangup()}
-            className="w-14 h-14 rounded-2xl bg-red-600 hover:bg-red-500 text-white flex flex-col items-center justify-center gap-0.5 shadow-xl shadow-red-950 transition-all active:scale-95"
+            className="h-[50px] rounded-[16px] bg-black hover:bg-neutral-800 text-white flex flex-col items-center justify-center gap-1 shadow-md transition-all active:scale-95 cursor-pointer"
             title="Desligar Chamada"
           >
-            <PhoneOff className="w-6 h-6" />
+            <PhoneOff className="w-4 h-4 text-white" />
             <span className="text-[9px] font-bold">Desligar</span>
           </button>
         </div>

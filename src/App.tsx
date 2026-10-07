@@ -35,6 +35,7 @@ import { VoiceCallModal } from './components/VoiceCallModal';
 import { KeypadView } from './components/KeypadView';
 import { ContactsHubView } from './components/ContactsHubView';
 import { AddContactModal } from './components/AddContactModal';
+import { WelcomeOnboardingModal } from './components/WelcomeOnboardingModal';
 import { DialpadIcon } from './components/DialpadIcon';
 import { ContactsIcon } from './components/ContactsIcon';
 import { ConversasIcon } from './components/ConversasIcon';
@@ -46,6 +47,15 @@ export default function App() {
   const [bleStatus, setBleStatus] = useState<BleDeviceStatus>(bleBridge.getStatus());
   const [myProfile, setMyProfile] = useState<UserRegistration>(meshManager.getMyProfile());
   const [callState, setCallState] = useState<VoiceCallState>(voiceCallService.getState());
+
+  // First-time onboarding: simple name registration + bluetooth prompt + 4116 sequential number generation
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem('lora_user_onboarding_completed_v2');
+    } catch {
+      return false;
+    }
+  });
 
   const [isEditNameModalOpen, setIsEditNameModalOpen] = useState(false);
   const [isRegistrationModalOpen, setIsRegistrationModalOpen] = useState(false);
@@ -106,13 +116,13 @@ export default function App() {
   };
 
   // Mobile Bottom Navigation Bar Items:
-  // Button 1: Conversas (Direct com ícone SVG fornecido)
-  // Button 2 (meio): Teclado (Keypad)
-  // Button 3 (direita): Contactos (Contacts com ícone fornecido)
+  // Button 1: Conversas
+  // Button 2 (meio): Teclado
+  // Button 3 (direita): Contatos
   const mobileTabs = [
     { id: 'direct', label: 'Conversas', icon: ConversasIcon },
     { id: 'keypad', label: 'Teclado', icon: DialpadIcon },
-    { id: 'contacts', label: 'Contactos', icon: ContactsIcon },
+    { id: 'contacts', label: 'Contatos', icon: ContactsIcon },
   ];
 
   const handleAddNewContact = (newContact: Partial<MeshNode>, phoneNumber: string) => {
@@ -141,13 +151,21 @@ export default function App() {
     };
     meshManager.addNode(fullNode);
     setNodes(meshManager.getNodes());
-    setSelectedDirectNodeId(fullNode.id);
-    setActiveTab('direct');
+    if (activeTab === 'contacts') {
+      setActiveTab('contacts');
+    } else {
+      setSelectedDirectNodeId(fullNode.id);
+      setActiveTab('direct');
+    }
   };
 
   return (
     <div
-      className={`min-h-screen bg-black text-slate-100 flex flex-col font-sans ${
+      className={`min-h-screen ${
+        (activeTab === 'direct' && !selectedDirectNodeId) || activeTab === 'keypad' || activeTab === 'contacts'
+          ? 'bg-white text-black'
+          : 'bg-black text-slate-100'
+      } flex flex-col font-sans ${
         activeTab === 'direct' && !selectedDirectNodeId ? 'pb-16' : 'pb-0'
       }`}
     >
@@ -230,9 +248,9 @@ export default function App() {
         )}
       </main>
 
-      {/* Mobile Fixed Bottom Tab Bar - Disappears in Keypad, Contactos, and when inside an active conversation */}
+      {/* Mobile Fixed Bottom Tab Bar - Disappears in Keypad, Contatos, and when inside an active conversation */}
       <nav
-        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-black/95 backdrop-blur-md border-t border-slate-900 grid grid-cols-3 items-center h-14 px-2 ${
+        className={`md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-[#EEEEEE] grid grid-cols-3 items-center h-16 px-2 ${
           activeTab === 'direct' && !selectedDirectNodeId ? '' : 'hidden'
         }`}
       >
@@ -246,12 +264,18 @@ export default function App() {
                 setSelectedDirectNodeId('');
                 setActiveTab(tab.id);
               }}
-              className={`flex flex-col items-center justify-center min-h-[44px] transition-colors ${
-                isActive ? 'text-emerald-400 font-semibold' : 'text-slate-400 hover:text-slate-200'
+              className={`flex flex-col items-center justify-center min-h-[48px] transition-colors ${
+                isActive ? 'text-black' : 'text-[#777777] hover:text-black'
               }`}
             >
-              <Icon className="w-5 h-5" />
-              <span className="text-[10px] tracking-tight mt-0.5">
+              <div className={`transition-colors ${isActive ? 'text-black' : 'text-[#929292]'}`}>
+                <Icon className="w-5 h-5" />
+              </div>
+              <span
+                className={`text-[10px] tracking-tight mt-1 ${
+                  isActive ? 'font-semibold text-black' : 'font-normal text-[#777777]'
+                }`}
+              >
                 {tab.label}
               </span>
             </button>
@@ -397,6 +421,16 @@ export default function App() {
         onClose={() => setIsAddContactModalOpen(false)}
         onAddContact={handleAddNewContact}
         existingNodes={nodes}
+      />
+
+      {/* First-time Welcome & Simple Registration Onboarding */}
+      <WelcomeOnboardingModal
+        isOpen={isOnboardingOpen}
+        onComplete={(registeredName, allocatedNumber) => {
+          setIsOnboardingOpen(false);
+          setNodes(meshManager.getNodes());
+          setMyProfile(meshManager.getMyProfile());
+        }}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Send,
   MapPin,
@@ -39,6 +39,7 @@ import { ProfileModal } from './ProfileModal';
 import { SettingsModal } from './SettingsModal';
 import { AddContactModal } from './AddContactModal';
 import { NewChatModal } from './NewChatModal';
+import { ConversasIcon } from './ConversasIcon';
 import {
   formatPhoneNumber,
   cleanPhoneNumber,
@@ -456,12 +457,48 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
     pointerStartRef.current = null;
   };
 
-  const activeContact: MeshNode | undefined = (() => {
+  // Asynchronously register dynamic phone contacts to meshManager without updating App during render
+  useEffect(() => {
+    if (selectedContactId && selectedContactId.startsWith('node_phone_')) {
+      const exists = nodes.some((n) => n && n.id === selectedContactId);
+      if (!exists) {
+        const raw = selectedContactId.replace('node_phone_', '');
+        const formatted = formatPhoneNumber(raw) || raw;
+        const dynamicNode: MeshNode = {
+          id: selectedContactId,
+          name: formatted,
+          username: `tel.${raw}`,
+          callsign: `TEL-${raw.slice(-4)}`,
+          phoneNumber: raw,
+          avatarColor: '#18181b',
+          avatarInitials: raw.slice(0, 2),
+          role: 'CLIENT',
+          hardware: 'ESP32 DIY SX1262',
+          isOnline: true,
+          lastHeard: Date.now(),
+          batteryPct: 100,
+          batteryVoltage: 4.2,
+          gps: { lat: 38.72, lng: -9.14, alt: 50 },
+          x: 50,
+          y: 50,
+          antennaDbi: 3.0,
+          hopsAway: 1,
+          rssi: -45,
+          snr: 12.0,
+          packetsForwarded: 0,
+        };
+        meshManager.addNode(dynamicNode);
+      }
+    }
+  }, [selectedContactId, nodes]);
+
+  // Purely compute activeContact with useMemo without side-effects
+  const activeContact: MeshNode | undefined = useMemo(() => {
     if (!selectedContactId) return undefined;
     const found = nodes.find((n) => n && n.id === selectedContactId);
     if (found) return found;
 
-    // If selectedContactId starts with node_phone_, dynamically create and register node
+    // If selectedContactId starts with node_phone_, provide pure fallback representation
     if (selectedContactId.startsWith('node_phone_')) {
       const raw = selectedContactId.replace('node_phone_', '');
       const formatted = formatPhoneNumber(raw) || raw;
@@ -488,12 +525,11 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
         snr: 12.0,
         packetsForwarded: 0,
       };
-      meshManager.addNode(dynamicNode);
       return dynamicNode;
     }
 
     return undefined;
-  })();
+  }, [selectedContactId, nodes]);
 
   // Filter messages for current thread (ignoring internal system announcements)
   const threadPackets = packets.filter((p) => {
@@ -648,44 +684,48 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
   };
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] max-w-6xl mx-auto overflow-hidden bg-black text-slate-100 border-x border-slate-900 font-sans">
+    <div className="flex h-screen md:h-[calc(100vh-3.5rem)] max-w-6xl mx-auto overflow-hidden bg-white text-black md:border-x md:border-[#EEEEEE] font-sans">
       {/* ========================================================================= */}
-      {/* LEFT COLUMN: Conversas List (Design Imagem 8)                             */}
+      {/* LEFT COLUMN: Conversas List (Design adaptado ao SVG)                      */}
       {/* ========================================================================= */}
       <div
-        className={`w-full md:w-80 lg:w-96 flex flex-col border-r border-slate-900 bg-black shrink-0 relative ${
+        className={`w-full md:w-80 lg:w-96 flex flex-col border-r border-[#EEEEEE] bg-white shrink-0 relative ${
           selectedContactId ? 'hidden md:flex' : 'flex'
         }`}
       >
-        {/* Top Header matching user Image 8 */}
-        <div className="h-16 px-5 flex items-center justify-between border-b border-slate-900 bg-black">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Conversas</h1>
-          </div>
+        {/* Top Header matching SVG Cabeçalho */}
+        <div className="pt-6 pb-4 px-5 flex items-center justify-between bg-white shrink-0">
+          <h1 className="text-[38px] leading-[44px] font-normal tracking-[-1.3px] text-black select-none">
+            Conversas
+          </h1>
 
-          <div className="flex items-center gap-1 relative">
+          <div className="relative">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-white hover:text-slate-300 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
+              className="w-10 h-10 rounded-full bg-black flex items-center justify-center cursor-pointer hover:bg-neutral-800 transition-colors shadow-sm"
               title="Mais opções"
             >
-              <MoreVertical className="w-6 h-6" />
+              <div className="flex flex-col items-center gap-[3.2px]">
+                <span className="w-[3.2px] h-[3.2px] rounded-full bg-white block" />
+                <span className="w-[3.2px] h-[3.2px] rounded-full bg-white block" />
+                <span className="w-[3.2px] h-[3.2px] rounded-full bg-white block" />
+              </div>
             </button>
 
-            {/* Popup Menu matching user image 1 */}
+            {/* Popup Menu */}
             {isMenuOpen && (
               <>
                 <div
                   className="fixed inset-0 z-40"
                   onClick={() => setIsMenuOpen(false)}
                 />
-                <div className="absolute right-0 top-full mt-2 w-52 bg-[#18181b] border border-slate-800 rounded-2xl p-1.5 shadow-2xl z-50 animate-fadeIn text-left">
+                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#EEEEEE] rounded-2xl p-1.5 shadow-xl z-50 animate-fadeIn text-left">
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
                       setIsProfileModalOpen(true);
                     }}
-                    className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold text-white hover:bg-slate-800 transition-colors flex items-center justify-between cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold text-black hover:bg-neutral-50 transition-colors flex items-center justify-between cursor-pointer"
                   >
                     <span>Perfil</span>
                   </button>
@@ -695,19 +735,19 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                       setIsMenuOpen(false);
                       setIsSettingsModalOpen(true);
                     }}
-                    className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold text-white hover:bg-slate-800 transition-colors flex items-center justify-between cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold text-black hover:bg-neutral-50 transition-colors flex items-center justify-between cursor-pointer"
                   >
                     <span>Definições</span>
                   </button>
 
-                  <div className="h-px bg-slate-800 my-1" />
+                  <div className="h-px bg-[#EEEEEE] my-1" />
 
                   <button
                     onClick={() => {
                       setIsMenuOpen(false);
                       setIsAddContactOpen(true);
                     }}
-                    className="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-400 hover:bg-slate-800 transition-colors flex items-center gap-2 cursor-pointer"
+                    className="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-emerald-600 hover:bg-neutral-50 transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Adicionar por Número</span>
@@ -718,21 +758,33 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
           </div>
         </div>
 
-        {/* Search Bar matching minimalist dark pill */}
-        <div className="px-4 py-3 border-b border-slate-900/60 bg-black">
-          <div className="flex items-center gap-3 px-4 py-2.5 bg-[#2c2c2e] hover:bg-[#323236] focus-within:bg-[#323236] transition-colors rounded-full border border-slate-700/60">
-            <Search className="w-4 h-4 text-slate-400 shrink-0" />
+        {/* Pesquisa rounded pill matching SVG */}
+        <div className="px-5 pb-3 bg-white shrink-0">
+          <div className="h-[42px] px-4 rounded-full border border-black bg-white flex items-center gap-2.5 transition-shadow">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="#707070"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              className="shrink-0"
+            >
+              <circle cx="6.5" cy="6.5" r="5" />
+              <path d="M10.5 10.5 L14.5 14.5" />
+            </svg>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Pesquisar..."
-              className="bg-transparent border-none text-xs text-slate-100 focus:outline-none w-full placeholder:text-slate-400"
+              className="bg-transparent border-none text-[13px] text-black focus:outline-none w-full placeholder:text-[#777777]"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="text-slate-400 hover:text-white p-0.5"
+                className="text-[#777777] hover:text-black p-0.5"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -742,10 +794,10 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
 
         {/* Contextual Options Bar when cards are marked */}
         {markedContactIds.size > 0 && (
-          <div className="p-2.5 bg-emerald-950/95 border-b border-emerald-500/40 flex items-center justify-between gap-2 shadow-lg backdrop-blur-md animate-fadeIn z-20 sticky top-0">
+          <div className="p-2.5 bg-emerald-50 border-b border-emerald-200 flex items-center justify-between gap-2 shadow-sm z-20 sticky top-0">
             <div className="flex items-center gap-1.5 pl-1">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              <span className="text-xs font-bold text-white">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span className="text-xs font-bold text-emerald-900">
                 {markedContactIds.size} {markedContactIds.size === 1 ? 'marcada' : 'marcadas'}
               </span>
             </div>
@@ -754,30 +806,30 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
               <button
                 type="button"
                 onClick={handlePinMarked}
-                className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-black border border-slate-200 text-xs flex items-center gap-1 transition-colors"
                 title="Fixar / Desafixar no topo"
               >
-                <Pin className="w-3.5 h-3.5 text-amber-400" />
+                <Pin className="w-3.5 h-3.5 text-amber-500" />
                 <span className="text-[11px] hidden sm:inline">Fixar</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleMuteMarked}
-                className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-black border border-slate-200 text-xs flex items-center gap-1 transition-colors"
                 title="Silenciar / Ativar notificações"
               >
-                <BellOff className="w-3.5 h-3.5 text-sky-400" />
+                <BellOff className="w-3.5 h-3.5 text-sky-600" />
                 <span className="text-[11px] hidden sm:inline">Silenciar</span>
               </button>
 
               <button
                 type="button"
                 onClick={handleClearMessagesMarked}
-                className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs flex items-center gap-1 transition-colors"
+                className="px-2 py-1 rounded-lg bg-white hover:bg-slate-50 text-black border border-slate-200 text-xs flex items-center gap-1 transition-colors"
                 title="Limpar mensagens da conversa"
               >
-                <Eraser className="w-3.5 h-3.5 text-slate-400" />
+                <Eraser className="w-3.5 h-3.5 text-slate-500" />
                 <span className="text-[11px] hidden sm:inline">Limpar</span>
               </button>
 
@@ -794,7 +846,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
               <button
                 type="button"
                 onClick={() => setMarkedContactIds(new Set())}
-                className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-900 transition-colors ml-1"
+                className="p-1 text-slate-400 hover:text-black rounded-lg hover:bg-slate-100 transition-colors ml-1"
                 title="Desmarcar / Cancelar"
               >
                 <X className="w-4 h-4" />
@@ -803,8 +855,8 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
           </div>
         )}
 
-        {/* Conversations List matching Image 8 */}
-        <div className="flex-1 overflow-y-auto divide-y divide-slate-900/50 relative bg-black">
+        {/* Conversations List matching SVG */}
+        <div className="flex-1 overflow-y-auto relative bg-white">
           {filteredContacts.map((contact) => {
             if (!contact || !contact.id) return null;
             const isSelected = contact.id === selectedContactId;
@@ -814,6 +866,8 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
             const isSwiping = activeSwipeId === contact.id;
             const currentOffset = isSwiping ? swipeOffset : 0;
             const willDelete = Math.abs(currentOffset) >= 90;
+
+            const isCanalGeral = contact.id === 'group-broadcast' || contact.isGroup;
 
             // Last message in thread
             const lastMsg = packets
@@ -825,156 +879,219 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
               )
               .slice(-1)[0];
 
+            const hasHeart = isCanalGeral || lastMsg?.likedByMe;
+            const timeDisplay = lastMsg
+              ? new Date(lastMsg.timestamp).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+              : isCanalGeral
+              ? '16:59'
+              : '22:49';
+
+            const phoneFormatted = formatPhoneNumber(
+              contact.phoneNumber || getNodePhoneNumber(contact.id)
+            );
+
             return (
-              <button
-                key={contact.id}
-                type="button"
-                onClick={(e) => {
-                  if (suppressClickRef.current) {
-                    suppressClickRef.current = false;
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return;
-                  }
-                  if (markedContactIds.size > 0) {
-                    toggleMarkContact(contact.id);
-                  } else {
-                    handleSelectContact(contact.id);
-                  }
-                }}
-                onPointerDown={(e) => onPointerDownCard(contact.id, e)}
-                onPointerMove={(e) => onPointerMoveCard(contact.id, e)}
-                onPointerUp={(e) => onPointerUpCard(contact.id, contact.name, e)}
-                onPointerCancel={(e) => onPointerUpCard(contact.id, contact.name, e)}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  toggleMarkContact(contact.id);
-                }}
-                className={`w-full relative overflow-hidden group select-none text-left block focus:outline-none touch-pan-y ${
-                  isMarked
-                    ? 'ring-2 ring-emerald-500/50 bg-[#062419]'
-                    : isSelected
-                    ? 'bg-[#111827]'
-                    : 'bg-black hover:bg-slate-900/40'
-                }`}
-              >
-                {/* Red Underlay: Revealed when swiping/dragging to either left or right */}
-                <div
-                  className={`absolute inset-0 flex items-center justify-between px-5 text-white font-bold text-xs pointer-events-none transition-colors ${
-                    willDelete ? 'bg-red-700' : 'bg-red-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-1.5">
-                    <Trash2 className={`w-4 h-4 ${willDelete ? 'scale-125 transition-transform' : ''}`} />
-                    <span className="text-[11px]">{willDelete ? 'Solte para eliminar' : 'Eliminar'}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px]">{willDelete ? 'Solte para eliminar' : 'Eliminar'}</span>
-                    <Trash2 className={`w-4 h-4 ${willDelete ? 'scale-125 transition-transform' : ''}`} />
-                  </div>
-                </div>
-
-                {/* Foreground Sliding Content matching Image 8 layout */}
-                <div
-                  style={{
-                    transform: `translateX(${currentOffset}px)`,
-                    transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+              <div key={contact.id} className="relative">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    if (suppressClickRef.current) {
+                      suppressClickRef.current = false;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      return;
+                    }
+                    if (markedContactIds.size > 0) {
+                      toggleMarkContact(contact.id);
+                    } else {
+                      handleSelectContact(contact.id);
+                    }
                   }}
-                  className={`relative z-10 w-full px-4 py-3.5 flex items-center gap-3.5 select-none touch-pan-y ${
+                  onPointerDown={(e) => onPointerDownCard(contact.id, e)}
+                  onPointerMove={(e) => onPointerMoveCard(contact.id, e)}
+                  onPointerUp={(e) => onPointerUpCard(contact.id, contact.name, e)}
+                  onPointerCancel={(e) => onPointerUpCard(contact.id, contact.name, e)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    toggleMarkContact(contact.id);
+                  }}
+                  className={`w-full relative overflow-hidden group select-none text-left block focus:outline-none touch-pan-y ${
                     isMarked
-                      ? 'border-l-4 border-emerald-500 bg-[#062419]'
+                      ? 'bg-emerald-50'
                       : isSelected
-                      ? 'border-l-2 border-emerald-500 bg-[#111827]'
-                      : 'bg-black'
+                      ? 'bg-neutral-100'
+                      : 'bg-white hover:bg-neutral-50/80 transition-colors'
                   }`}
                 >
-                  {/* Selection Mark Indicator Checkbox */}
-                  {markedContactIds.size > 0 && (
-                    <div
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        toggleMarkContact(contact.id);
-                      }}
-                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
-                        isMarked
-                          ? 'bg-emerald-500 text-slate-950 shadow-sm shadow-emerald-500/30'
-                          : 'border border-slate-700 opacity-60 hover:opacity-100 hover:border-slate-500'
-                      }`}
-                      title={isMarked ? 'Desmarcar' : 'Pressione para marcar'}
-                    >
-                      {isMarked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                  {/* Red Underlay: Revealed when swiping/dragging to either left or right */}
+                  <div
+                    className={`absolute inset-0 flex items-center justify-between px-5 text-white font-bold text-xs pointer-events-none transition-colors ${
+                      willDelete ? 'bg-red-700' : 'bg-red-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <Trash2 className={`w-4 h-4 ${willDelete ? 'scale-125 transition-transform' : ''}`} />
+                      <span className="text-[11px]">{willDelete ? 'Solte para eliminar' : 'Eliminar'}</span>
                     </div>
-                  )}
-
-                  {/* Large Round Avatar matching Image 8 */}
-                  <div className="relative shrink-0">
-                    <div
-                      className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-md bg-[#18181b]"
-                      style={{ backgroundColor: contact.avatarColor || '#18181b' }}
-                    >
-                      {contact.avatarInitials || (contact.name ? contact.name.slice(0, 2).toUpperCase() : 'C')}
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11px]">{willDelete ? 'Solte para eliminar' : 'Eliminar'}</span>
+                      <Trash2 className={`w-4 h-4 ${willDelete ? 'scale-125 transition-transform' : ''}`} />
                     </div>
-                    {contact.isOnline && (
-                      <span className="absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-black" />
-                    )}
-                    {isPinned && (
-                      <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-amber-500 text-slate-950 flex items-center justify-center shadow-xs">
-                        <Pin className="w-2.5 h-2.5" />
-                      </span>
-                    )}
                   </div>
 
-                  {/* Content details matching Image 8 */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-0.5">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-base font-bold text-white group-hover:text-emerald-400 transition-colors truncate">
-                          {contact.name}
-                        </span>
-                        {isMuted && <BellOff className="w-3 h-3 text-slate-500 shrink-0" />}
+                  {/* Foreground Sliding Content */}
+                  <div
+                    style={{
+                      transform: `translateX(${currentOffset}px)`,
+                      transition: isSwiping ? 'none' : 'transform 0.22s cubic-bezier(0.2, 0.9, 0.3, 1)',
+                    }}
+                    className={`relative z-10 w-full px-5 py-3.5 flex items-center gap-3.5 select-none touch-pan-y ${
+                      isMarked ? 'bg-emerald-50' : isSelected ? 'bg-neutral-100' : 'bg-white'
+                    }`}
+                  >
+                    {/* Selection Mark Indicator Checkbox */}
+                    {markedContactIds.size > 0 && (
+                      <div
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleMarkContact(contact.id);
+                        }}
+                        className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 transition-all cursor-pointer ${
+                          isMarked
+                            ? 'bg-emerald-600 text-white shadow-sm'
+                            : 'border border-slate-300 opacity-60 hover:opacity-100'
+                        }`}
+                        title={isMarked ? 'Desmarcar' : 'Pressione para marcar'}
+                      >
+                        {isMarked && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       </div>
-                      <span className="text-xs text-slate-500 shrink-0 font-medium">
-                        {lastMsg
-                          ? new Date(lastMsg.timestamp).toLocaleTimeString([], {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })
-                          : ''}
-                      </span>
-                    </div>
+                    )}
 
-                    <div className="flex items-center gap-1 text-[11px] font-mono text-emerald-400 font-semibold mb-0.5">
-                      <span>{formatPhoneNumber(contact.phoneNumber || getNodePhoneNumber(contact.id))}</span>
-                    </div>
-
-                    <p className="text-xs text-slate-400 truncate">
-                      {lastMsg ? (
-                        lastMsg.packetType === 'VOICE_BURST' ? (
-                          <span className="text-emerald-400 font-medium">🎤 Áudio ({lastMsg.voiceBurst?.durationSeconds.toFixed(1)}s)</span>
-                        ) : lastMsg.packetType === 'LOCATION_PING' ? (
-                          <span className="text-sky-400 font-medium">📍 Localização partilhada</span>
-                        ) : (
-                          lastMsg.payloadText
-                        )
+                    {/* Avatar Circle matching SVG */}
+                    <div className="relative shrink-0 w-14 h-14">
+                      {isCanalGeral ? (
+                        <div
+                          className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg text-black shadow-xs select-none"
+                          style={{
+                            background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                          }}
+                        >
+                          CG
+                        </div>
                       ) : (
-                        'Toque para conversar'
+                        <div
+                          className="w-14 h-14 rounded-full flex items-center justify-center font-bold text-lg text-white shadow-xs select-none"
+                          style={{
+                            backgroundColor: contact.avatarColor === '#10b981' ? '#000000' : (contact.avatarColor || '#000000'),
+                          }}
+                        >
+                          {contact.avatarInitials || (contact.name ? contact.name.slice(0, 2).toUpperCase() : 'C')}
+                        </div>
                       )}
-                    </p>
+
+                      {/* Indicador de áudio no topo direito (ex. Canal Geral) */}
+                      {isCanalGeral && (
+                        <div
+                          className="absolute -top-1 -right-1 w-[18px] h-[18px] rounded-full bg-[#FFC58F] border-2 border-white flex items-center justify-center shadow-xs"
+                          title="Indicador de áudio"
+                        >
+                          <svg
+                            width="9"
+                            height="11"
+                            viewBox="67 135 8 12"
+                            fill="none"
+                            stroke="#000000"
+                            strokeWidth="1.2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="69.5" y="136" width="3" height="5" rx="1.5" />
+                            <path d="M67.8 139.5 V140.4 A3.2 3.2 0 0 0 74.2 140.4 V139.5 M71 143.6 V146 M69 146 H73" />
+                          </svg>
+                        </div>
+                      )}
+
+                      {/* Presença (green dot) na base direita */}
+                      {contact.isOnline && (
+                        <span className="absolute -bottom-0.5 -right-0.5 w-[13px] h-[13px] rounded-full bg-[#00B98B] border-2 border-white" />
+                      )}
+
+                      {/* Pinned badge */}
+                      {isPinned && !isCanalGeral && (
+                        <span className="absolute -top-1 -left-1 w-4 h-4 rounded-full bg-amber-500 text-black flex items-center justify-center shadow-xs">
+                          <Pin className="w-2.5 h-2.5" />
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Content details matching SVG */}
+                    <div className="flex-1 min-w-0 pr-1">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <span className="text-base font-semibold text-black truncate leading-tight">
+                            {contact.name}
+                          </span>
+                          {isMuted && <BellOff className="w-3.5 h-3.5 text-[#929292] shrink-0" />}
+                        </div>
+                        <span className="text-[11px] text-[#777777] shrink-0 font-normal ml-2">
+                          {timeDisplay}
+                        </span>
+                      </div>
+
+                      <div className="text-xs text-[#666666] font-normal mb-1 font-mono tracking-tight">
+                        {phoneFormatted}
+                      </div>
+
+                      <div className="flex items-center gap-1.5 min-h-[18px]">
+                        {hasHeart && (
+                          <svg
+                            width="14"
+                            height="14"
+                            viewBox="90 180 16 16"
+                            fill="#E94658"
+                            className="inline-block shrink-0"
+                          >
+                            <path d="M98 186 C95 182 91 184 92 187 C93 190 98 193 98 193 C98 193 103 190 104 187 C105 184 101 182 98 186Z" />
+                          </svg>
+                        )}
+                        <p className="text-[13px] text-[#777777] truncate font-normal leading-normal">
+                          {lastMsg ? (
+                            lastMsg.packetType === 'VOICE_BURST' ? (
+                              <span>Áudio ({lastMsg.voiceBurst?.durationSeconds.toFixed(1)}s)</span>
+                            ) : lastMsg.packetType === 'LOCATION_PING' ? (
+                              <span>📍 Localização partilhada</span>
+                            ) : (
+                              lastMsg.payloadText
+                            )
+                          ) : isCanalGeral ? (
+                            ''
+                          ) : (
+                            'oi'
+                          )}
+                        </p>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </button>
+                </button>
+
+                {/* Indented Divider matching SVG <path d="M92 211 H334" stroke="#EEEEEE" stroke-width="1"/> */}
+                <div className="ml-[88px] mr-5 h-px bg-[#EEEEEE]" />
+              </div>
             );
           })}
 
           {/* Simple Invitation when alone */}
           {otherContacts.filter((c) => !c.isGroup && !deletedContactIds.has(c.id)).length === 0 && (
-            <div className="p-6 m-4 bg-[#18181b] rounded-2xl border border-slate-800 text-center space-y-3">
-              <p className="text-sm text-slate-300 font-medium">
+            <div className="p-6 m-4 bg-neutral-50 rounded-2xl border border-neutral-200 text-center space-y-3">
+              <p className="text-sm text-neutral-600 font-medium">
                 Nenhum colega conectado ainda
               </p>
               <button
                 onClick={() => setIsAddContactOpen(true)}
-                className="w-full py-2.5 px-4 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md"
+                className="w-full py-2.5 px-4 bg-black hover:bg-neutral-800 text-white font-bold rounded-xl text-xs transition-colors flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
               >
                 <UserPlus className="w-4 h-4" />
                 <span>Adicionar por Número 4116</span>
@@ -984,14 +1101,14 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
 
           {/* Undo Toast when deleted */}
           {undoToast && (
-            <div className="sticky bottom-3 mx-3 p-3 bg-slate-900/95 border border-slate-800 rounded-xl shadow-2xl flex items-center justify-between text-xs text-white backdrop-blur-md animate-fadeIn z-30">
+            <div className="sticky bottom-3 mx-3 p-3 bg-neutral-900 border border-neutral-800 rounded-xl shadow-2xl flex items-center justify-between text-xs text-white backdrop-blur-md animate-fadeIn z-30">
               <div className="flex items-center gap-2 truncate pr-2">
                 <Trash2 className="w-4 h-4 text-red-400 shrink-0" />
                 <span className="truncate">{undoToast.name} eliminada</span>
               </div>
               <button
                 onClick={handleUndoDelete}
-                className="px-3 py-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1"
+                className="px-3 py-1 bg-white hover:bg-neutral-100 text-black font-bold rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1 cursor-pointer"
               >
                 <RotateCcw className="w-3 h-3" />
                 <span>Desfazer</span>
@@ -1000,34 +1117,46 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
           )}
         </div>
 
-        {/* Floating Action Button at bottom-right of Conversas (Image 8) */}
+        {/* Floating Action Button at bottom-right of Conversas (matching SVG Nova conversa) */}
         <div className="fixed bottom-20 md:bottom-8 right-6 z-30 pointer-events-auto">
           <button
             onClick={() => setIsNewChatModalOpen(true)}
-            className="w-14 h-14 rounded-full bg-white text-black border-2 border-black hover:bg-slate-100 active:scale-95 shadow-2xl flex items-center justify-center transition-all cursor-pointer"
-            title="Nova Conversa / Selecionar Contacto ou Digitar Número"
+            className="w-[60px] h-[60px] rounded-full bg-black text-white hover:bg-neutral-800 active:scale-95 shadow-[0_5px_14px_rgba(0,0,0,0.18)] flex items-center justify-center transition-all cursor-pointer"
+            title="Nova conversa"
           >
-            <MessageSquarePlus className="w-6 h-6 text-black stroke-[2.2]" />
+            <svg
+              width="24"
+              height="24"
+              viewBox="293 544 24 25"
+              fill="none"
+              stroke="#FFFFFF"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M295 546 H313 A2 2 0 0 1 315 548 V560 A2 2 0 0 1 313 562 H301 L294 567 V548 A2 2 0 0 1 296 546Z" />
+              <path d="M300 554 H309 M304.5 549.5 V558.5" />
+            </svg>
           </button>
         </div>
       </div>
 
       {/* ========================================================================= */}
-      {/* RIGHT COLUMN: Active User Conversation (Design Imagem 9)                  */}
+      {/* RIGHT COLUMN: Active User Conversation                                    */}
       {/* ========================================================================= */}
       <div
-        className={`flex-1 flex flex-col bg-black relative ${
+        className={`flex-1 flex flex-col bg-white relative ${
           !selectedContactId ? 'hidden md:flex items-center justify-center' : 'flex'
         }`}
       >
         {selectedContactId && activeContact ? (
           <>
-            {/* Header: Design Imagem 9 */}
-            <div className="h-16 px-4 flex items-center justify-between border-b border-slate-900 bg-black z-10 shrink-0">
+            {/* Header: Design Limpo Preto e Branco */}
+            <div className="h-16 px-4 flex items-center justify-between border-b border-[#EEEEEE] bg-white z-10 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <button
                   onClick={handleBackToConversationsList}
-                  className="p-1.5 -ml-1 text-white hover:text-slate-300 rounded-full hover:bg-slate-900 transition-colors cursor-pointer mr-1"
+                  className="p-1.5 -ml-1 text-black hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer mr-1"
                   title="Voltar às conversas"
                 >
                   <ArrowLeft className="w-6 h-6" />
@@ -1038,14 +1167,31 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                   className="relative cursor-pointer shrink-0"
                   title="Ver perfil"
                 >
-                  <div
-                    className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-white bg-[#18181b] shadow-sm"
-                    style={{ backgroundColor: activeContact.avatarColor || '#18181b' }}
-                  >
-                    {activeContact.avatarInitials || (activeContact.name ? activeContact.name.slice(0, 2).toUpperCase() : 'C')}
-                  </div>
+                  {activeContact.isGroup || activeContact.id === 'group-broadcast' ? (
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-black shadow-xs"
+                      style={{
+                        background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                      }}
+                    >
+                      CG
+                    </div>
+                  ) : (
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-white shadow-xs"
+                      style={{
+                        backgroundColor:
+                          activeContact.avatarColor === '#10b981'
+                            ? '#000000'
+                            : activeContact.avatarColor || '#000000',
+                      }}
+                    >
+                      {activeContact.avatarInitials ||
+                        (activeContact.name ? activeContact.name.slice(0, 2).toUpperCase() : 'C')}
+                    </div>
+                  )}
                   {activeContact.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-black" />
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#00B98B] border-2 border-white" />
                   )}
                 </div>
 
@@ -1053,24 +1199,24 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                   onClick={() => !activeContact.isGroup && setContactProfileModalNode(activeContact)}
                   className="min-w-0 cursor-pointer"
                 >
-                  <h2 className="text-base font-bold text-white leading-tight truncate hover:text-emerald-400 transition-colors">
+                  <h2 className="text-base font-bold text-black leading-tight truncate hover:text-neutral-700 transition-colors">
                     {activeContact.name}
                   </h2>
                   <div className="flex items-center gap-1.5 mt-0.5">
                     {activeContact.isGroup ? (
-                      <span className="text-[11px] text-emerald-400 font-medium">Canal Geral LoRa</span>
+                      <span className="text-[11px] text-[#666666] font-medium">Canal Geral LoRa</span>
                     ) : (
-                      <span className="text-[11px] font-mono text-emerald-400 font-medium flex items-center gap-1">
+                      <span className="text-[11px] font-mono text-[#666666] font-medium flex items-center gap-1">
                         <span>{formatPhoneNumber(activeContact.phoneNumber || getNodePhoneNumber(activeContact.id))}</span>
-                        <span className="text-slate-500">•</span>
-                        <span className="text-slate-400">Online</span>
+                        <span className="text-neutral-400">•</span>
+                        <span className="text-[#00B98B]">Online</span>
                       </span>
                     )}
                   </div>
                 </div>
               </div>
 
-              {/* Header Right Actions matching Image 9 */}
+              {/* Header Right Actions */}
               <div className="flex items-center gap-1 relative">
                 {!activeContact.isGroup && (
                   <button
@@ -1078,10 +1224,12 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                       voiceCallService.startCall(
                         activeContact.id,
                         activeContact.name,
-                        activeContact.callsign
+                        activeContact.callsign,
+                        activeContact.phoneNumber || getNodePhoneNumber(activeContact.id),
+                        activeContact
                       )
                     }
-                    className="p-2 text-white hover:text-emerald-400 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
+                    className="p-2 text-black hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
                     title="Fazer chamada de voz"
                   >
                     <Phone className="w-5 h-5" />
@@ -1090,7 +1238,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
 
                 <button
                   onClick={handleSendLocation}
-                  className="p-2 text-white hover:text-sky-400 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
+                  className="p-2 text-black hover:text-sky-600 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
                   title="Partilhar localização GPS"
                 >
                   <MapPin className="w-5 h-5" />
@@ -1098,7 +1246,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
 
                 <button
                   onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
-                  className="p-2 text-white hover:text-slate-300 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
+                  className="p-2 text-black hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
                   title="Mais opções da conversa"
                 >
                   <MoreVertical className="w-5 h-5" />
@@ -1111,14 +1259,14 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                       className="fixed inset-0 z-40"
                       onClick={() => setIsChatMenuOpen(false)}
                     />
-                    <div className="absolute right-0 top-full mt-2 w-52 bg-[#18181b] border border-slate-800 rounded-2xl p-1.5 shadow-2xl z-50 animate-fadeIn text-left">
+                    <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-[#EEEEEE] rounded-2xl p-1.5 shadow-xl z-50 animate-fadeIn text-left">
                       {!activeContact.isGroup && (
                         <button
                           onClick={() => {
                             setIsChatMenuOpen(false);
                             setContactProfileModalNode(activeContact);
                           }}
-                          className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white hover:bg-slate-800 transition-colors flex items-center justify-between cursor-pointer"
+                          className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-black hover:bg-neutral-50 transition-colors flex items-center justify-between cursor-pointer"
                         >
                           <span>Ver Perfil</span>
                         </button>
@@ -1129,7 +1277,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                           setIsChatMenuOpen(false);
                           handleToggleMuteContact(activeContact.id);
                         }}
-                        className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white hover:bg-slate-800 transition-colors flex items-center justify-between cursor-pointer"
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-black hover:bg-neutral-50 transition-colors flex items-center justify-between cursor-pointer"
                       >
                         <span>{mutedContactIds.has(activeContact.id) ? 'Ativar Notificações' : 'Silenciar'}</span>
                       </button>
@@ -1139,19 +1287,19 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                           setIsChatMenuOpen(false);
                           meshManager.clearConversation(activeContact.id, selfNode.id);
                         }}
-                        className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-white hover:bg-slate-800 transition-colors flex items-center justify-between cursor-pointer"
+                        className="w-full text-left px-3.5 py-2.5 rounded-xl text-xs font-semibold text-black hover:bg-neutral-50 transition-colors flex items-center justify-between cursor-pointer"
                       >
                         <span>Limpar Mensagens</span>
                       </button>
 
-                      <div className="h-px bg-slate-800 my-1" />
+                      <div className="h-px bg-[#EEEEEE] my-1" />
 
                       <button
                         onClick={() => {
                           setIsChatMenuOpen(false);
                           handleDeleteContact(activeContact.id, activeContact.name);
                         }}
-                        className="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-red-400 hover:bg-slate-800 transition-colors flex items-center gap-2 cursor-pointer"
+                        className="w-full text-left px-3.5 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2 cursor-pointer"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                         <span>Eliminar Conversa</span>
@@ -1162,15 +1310,15 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
               </div>
             </div>
 
-            {/* Messages Feed matching Image 9 */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5 bg-black">
+            {/* Messages Feed */}
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5 bg-[#F8F9FA]">
               {threadPackets.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 px-4 text-center space-y-3">
-                  <div className="w-14 h-14 rounded-full bg-[#18181b] border border-slate-800 flex items-center justify-center text-emerald-400 shadow-md">
+                  <div className="w-14 h-14 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center text-black shadow-xs">
                     <Radio className="w-6 h-6" />
                   </div>
-                  <div className="text-base font-bold text-white">Canal Aberto e Pronto</div>
-                  <p className="text-xs text-slate-400 max-w-xs leading-relaxed">
+                  <div className="text-base font-bold text-black">Canal Aberto e Pronto</div>
+                  <p className="text-xs text-[#777777] max-w-xs leading-relaxed">
                     Envie uma mensagem de texto, grave uma nota de voz ou faça uma chamada com {activeContact.name}.
                   </p>
                 </div>
@@ -1192,11 +1340,11 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                     >
                       {!isMe && isGroup && (
                         <div className="flex items-center gap-1.5 mb-1 px-1">
-                          <span className="text-[11px] font-semibold text-emerald-400">
+                          <span className="text-[11px] font-semibold text-black">
                             {senderDisplayName}
                           </span>
                           {senderCallsign && (
-                            <span className="text-[9px] font-mono text-slate-400 uppercase bg-slate-800/80 px-1 py-0.5 rounded">
+                            <span className="text-[9px] font-mono text-[#666666] uppercase bg-neutral-200 px-1 py-0.5 rounded">
                               {senderCallsign}
                             </span>
                           )}
@@ -1204,13 +1352,13 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                       )}
                       <div className="flex items-end gap-2 max-w-[85%] sm:max-w-md">
                         <div className="relative">
-                          {/* Bubble matching Image 9 */}
+                          {/* Bubble */}
                           <div
                             onDoubleClick={() => meshManager.toggleLikeMessage(pkt.id)}
                             className={`p-3.5 transition-all select-none ${
                               isMe
-                                ? 'bg-[#2c2c2e] hover:bg-[#343438] text-white rounded-2xl rounded-br-xs shadow-md'
-                                : 'bg-[#18181b] text-white rounded-2xl rounded-bl-xs shadow-md border border-slate-800/80'
+                                ? 'bg-black text-white rounded-2xl rounded-br-xs shadow-xs'
+                                : 'bg-white text-black rounded-2xl rounded-bl-xs shadow-xs border border-[#EEEEEE]'
                             }`}
                           >
                             {/* Voice Note */}
@@ -1218,12 +1366,14 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                               <div className="flex items-center gap-3 min-w-[200px]">
                                 <button
                                   onClick={() => handlePlayVoice(pkt.voiceBurst!, pkt.id)}
-                                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 ${
+                                  className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition-transform active:scale-95 cursor-pointer ${
                                     isPlaying
-                                      ? 'bg-white text-slate-950'
+                                      ? isMe
+                                        ? 'bg-white text-black'
+                                        : 'bg-black text-white'
                                       : isMe
                                       ? 'bg-white/20 text-white hover:bg-white/30'
-                                      : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400'
+                                      : 'bg-black text-white hover:bg-neutral-800'
                                   }`}
                                 >
                                   {isPlaying ? (
@@ -1239,13 +1389,17 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                                       <div
                                         key={i}
                                         className={`w-1 rounded-full ${
-                                          isMe ? 'bg-white/80' : 'bg-emerald-400'
+                                          isMe ? 'bg-white/80' : 'bg-black'
                                         }`}
                                         style={{ height: `${Math.max(25, v * 100)}%` }}
                                       />
                                     ))}
                                   </div>
-                                  <div className="text-[10px] text-white/70 font-mono mt-0.5">
+                                  <div
+                                    className={`text-[10px] font-mono mt-0.5 ${
+                                      isMe ? 'text-white/70' : 'text-[#777777]'
+                                    }`}
+                                  >
                                     0:0{Math.round(pkt.voiceBurst.durationSeconds)}
                                   </div>
                                 </div>
@@ -1256,12 +1410,16 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                                 className="flex items-center gap-2.5 text-left hover:opacity-90 transition-opacity p-0.5"
                                 title="Abrir no Mapa Mesh"
                               >
-                                <div className="w-8 h-8 rounded-xl bg-sky-500/20 text-sky-400 flex items-center justify-center shrink-0">
+                                <div className="w-8 h-8 rounded-xl bg-sky-100 text-sky-600 flex items-center justify-center shrink-0">
                                   <MapPin className="w-4 h-4" />
                                 </div>
                                 <div>
-                                  <span className="text-xs font-semibold text-white block">Localização Partilhada</span>
-                                  <span className="text-[10px] text-sky-400 hover:underline">Ver no Mapa Mesh →</span>
+                                  <span className={`text-xs font-semibold block ${isMe ? 'text-white' : 'text-black'}`}>
+                                    Localização Partilhada
+                                  </span>
+                                  <span className="text-[10px] text-sky-500 hover:underline">
+                                    Ver no Mapa Mesh →
+                                  </span>
                                 </div>
                               </button>
                             ) : (
@@ -1273,8 +1431,8 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
 
                           {/* Heart Badge */}
                           {pkt.likedByMe && (
-                            <div className="absolute -bottom-2 right-2 bg-black border border-slate-800 rounded-full px-1.5 py-0.5 shadow-sm flex items-center text-[10px]">
-                              <Heart className="w-3 h-3 fill-red-500 text-red-500" />
+                            <div className="absolute -bottom-2 right-2 bg-white border border-[#EEEEEE] rounded-full px-1.5 py-0.5 shadow-xs flex items-center text-[10px]">
+                              <Heart className="w-3 h-3 fill-[#E94658] text-[#E94658]" />
                             </div>
                           )}
                         </div>
@@ -1282,18 +1440,18 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                         {/* Hover Heart button */}
                         <button
                           onClick={() => meshManager.toggleLikeMessage(pkt.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 text-slate-500 hover:text-red-500 transition-opacity"
+                          className="opacity-0 group-hover:opacity-100 p-1 text-[#777777] hover:text-[#E94658] transition-opacity cursor-pointer"
                           title="Gostar"
                         >
-                          <Heart className={`w-3.5 h-3.5 ${pkt.likedByMe ? 'fill-red-500 text-red-500' : ''}`} />
+                          <Heart className={`w-3.5 h-3.5 ${pkt.likedByMe ? 'fill-[#E94658] text-[#E94658]' : ''}`} />
                         </button>
                       </div>
 
-                      <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-1 px-1">
+                      <div className="flex items-center gap-1 text-[10px] text-[#777777] mt-1 px-1">
                         <span>
                           {new Date(pkt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </span>
-                        {isMe && <CheckCheck className="w-3 h-3 text-emerald-400" />}
+                        {isMe && <CheckCheck className="w-3 h-3 text-[#00B98B]" />}
                       </div>
                     </div>
                   );
@@ -1302,13 +1460,13 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Bar matching Image 9 */}
-            <div className="px-4 py-3 bg-black border-t border-slate-900 shrink-0">
+            {/* Input Bar */}
+            <div className="px-4 py-3 bg-white border-t border-[#EEEEEE] shrink-0">
               {isRecordingVoice ? (
                 /* Recording Mode */
-                <div className="flex items-center gap-3 px-4 py-2.5 bg-[#18181b] rounded-full border border-red-500/40">
+                <div className="flex items-center gap-3 px-4 py-2.5 bg-neutral-50 rounded-full border border-red-300">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping" />
-                  <span className="font-mono text-red-400 font-bold text-xs">
+                  <span className="font-mono text-red-600 font-bold text-xs">
                     0:0{Math.floor(recordSeconds)}
                   </span>
 
@@ -1318,21 +1476,21 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
 
                   <button
                     onClick={handleCancelVoice}
-                    className="text-xs text-slate-400 hover:text-white font-medium cursor-pointer"
+                    className="text-xs text-neutral-500 hover:text-black font-medium cursor-pointer"
                   >
                     Cancelar
                   </button>
 
                   <button
                     onClick={handleStopAndSendVoice}
-                    className="w-8 h-8 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center transition-transform active:scale-95 shadow-sm cursor-pointer"
+                    className="w-8 h-8 rounded-full bg-black text-white hover:bg-neutral-800 flex items-center justify-center transition-transform active:scale-95 shadow-sm cursor-pointer"
                     title="Enviar áudio"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </button>
                 </div>
               ) : (
-                /* Text Input Bar matching Image 9 */
+                /* Text Input Bar */
                 <form
                   onSubmit={handleSendText}
                   className="flex items-center gap-2"
@@ -1340,7 +1498,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                   <button
                     type="button"
                     onClick={handleSendLocation}
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-sky-400 hover:bg-slate-900 transition-colors shrink-0"
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-[#777777] hover:text-sky-600 hover:bg-neutral-100 transition-colors shrink-0 cursor-pointer"
                     title="Enviar localização"
                   >
                     <MapPin className="w-5 h-5" />
@@ -1351,13 +1509,13 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                     value={textInput}
                     onChange={(e) => setTextInput(e.target.value)}
                     placeholder="Mensagem..."
-                    className="flex-1 bg-[#2c2c2e] hover:bg-[#323236] focus:bg-[#323236] text-white placeholder-slate-400 text-sm px-5 py-3 rounded-full border border-slate-700/60 focus:outline-none focus:border-white transition-all"
+                    className="flex-1 bg-[#F4F4F5] hover:bg-[#EFEFEF] focus:bg-white text-black placeholder-[#777777] text-sm px-5 py-3 rounded-full border border-neutral-200 focus:outline-none focus:border-black transition-all"
                   />
 
                   {textInput.trim() ? (
                     <button
                       type="submit"
-                      className="px-5 py-3 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-bold text-xs rounded-full transition-all shrink-0 cursor-pointer shadow-md"
+                      className="px-5 py-3 bg-black hover:bg-neutral-800 active:scale-95 text-white font-bold text-xs rounded-full transition-all shrink-0 cursor-pointer shadow-sm"
                     >
                       Enviar
                     </button>
@@ -1366,7 +1524,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                       <button
                         type="button"
                         onClick={handleStartVoice}
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-emerald-400 hover:bg-slate-900 transition-colors cursor-pointer"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-[#777777] hover:text-black hover:bg-neutral-100 transition-colors cursor-pointer"
                         title="Gravar áudio"
                       >
                         <Mic className="w-5 h-5" />
@@ -1375,7 +1533,7 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                       <button
                         type="button"
                         onClick={handleSendHeart}
-                        className="w-10 h-10 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-slate-900 transition-colors cursor-pointer"
+                        className="w-10 h-10 rounded-full flex items-center justify-center text-[#777777] hover:text-[#E94658] hover:bg-neutral-100 transition-colors cursor-pointer"
                         title="Enviar coração"
                       >
                         <Heart className="w-5 h-5" />
@@ -1388,13 +1546,13 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
           </>
         ) : (
           <div className="flex flex-col items-center justify-center text-center p-8 space-y-4 max-w-sm mx-auto">
-            <div className="w-16 h-16 rounded-3xl bg-[#18181b] border border-slate-800 flex items-center justify-center text-emerald-400 shadow-xl">
-              <Radio className="w-7 h-7" />
+            <div className="w-16 h-16 rounded-full bg-neutral-100 flex items-center justify-center text-black shadow-xs">
+              <ConversasIcon className="w-8 h-8" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-bold text-white">Nenhuma conversa selecionada</h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Escolha uma conversa na lista à esquerda ou clique no botão circular <strong>"+"</strong> para adicionar um novo contacto.
+              <h3 className="text-base font-bold text-black">Nenhuma conversa selecionada</h3>
+              <p className="text-xs text-[#777777] leading-relaxed">
+                Escolha uma conversa na lista à esquerda ou clique no botão circular <strong>"+"</strong> para iniciar uma nova conversa.
               </p>
             </div>
           </div>
