@@ -216,19 +216,19 @@ async function startServer() {
       const cleanTarget = targetIdOrPhone.replace(/\D/g, '');
       const results = new Set<WebSocket>();
 
-      // 1. Match by assigned 4116 phone number
+      // 1. Match by assigned 4116 phone number (exact phone match only)
       for (const [nodeId, phone] of assignedPhoneMap.entries()) {
         const cleanAssigned = phone.replace(/\D/g, '');
-        if (cleanAssigned && (cleanAssigned === cleanTarget || targetIdOrPhone.includes(cleanAssigned))) {
+        if (cleanAssigned && cleanTarget && cleanAssigned === cleanTarget) {
           const socks = wsClients.get(nodeId);
           if (socks) socks.forEach((s) => results.add(s));
         }
       }
 
-      // 2. Match by registeredNodes phone number
+      // 2. Match by registeredNodes phone number (exact phone match only)
       for (const node of registeredNodes) {
         const nodePhone = (node.phoneNumber || '').replace(/\D/g, '');
-        if (nodePhone && (nodePhone === cleanTarget || targetIdOrPhone.includes(nodePhone))) {
+        if (nodePhone && cleanTarget && nodePhone === cleanTarget) {
           const socks = wsClients.get(node.id);
           if (socks) socks.forEach((s) => results.add(s));
         }

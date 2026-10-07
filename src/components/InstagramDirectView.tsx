@@ -17,6 +17,7 @@ import {
   Phone,
   Signal,
   Trash2,
+  Star,
   Pin,
   PinOff,
   Bell,
@@ -99,12 +100,62 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
   };
 
   const selfNode: MeshNode = nodes.find((n) => n && n.isSelf) || nodes[0] || fallbackSelfNode;
-  const otherContacts = nodes.filter((n) => n && !n.isSelf);
 
   // Active contact: controlled by selectedContactId
   const [selectedContactId, setSelectedContactId] = useState<string>(
     initialSelectedContactId || ''
   );
+
+  // Purely compute activeContact with useMemo without side-effects
+  const activeContact: MeshNode | undefined = useMemo(() => {
+    if (!selectedContactId) return undefined;
+    const found = nodes.find((n) => n && n.id === selectedContactId);
+    if (found) return found;
+
+    // Check meshManager nodes as well
+    const mmFound = meshManager.getNodes().find((n) => n && n.id === selectedContactId);
+    if (mmFound) return mmFound;
+
+    // If selectedContactId starts with node_phone_, provide pure fallback representation
+    if (selectedContactId.startsWith('node_phone_')) {
+      const raw = selectedContactId.replace('node_phone_', '');
+      const formatted = formatPhoneNumber(raw) || raw;
+      const dynamicNode: MeshNode = {
+        id: selectedContactId,
+        name: formatted,
+        username: `tel.${raw}`,
+        callsign: `TEL-${raw.slice(-4)}`,
+        phoneNumber: raw,
+        avatarColor: '#18181b',
+        avatarInitials: raw.slice(0, 2),
+        role: 'CLIENT',
+        hardware: 'ESP32 DIY SX1262',
+        isOnline: true,
+        lastHeard: Date.now(),
+        batteryPct: 100,
+        batteryVoltage: 4.2,
+        gps: { lat: 38.72, lng: -9.14, alt: 50 },
+        x: 50,
+        y: 50,
+        antennaDbi: 3.0,
+        hopsAway: 1,
+        rssi: -45,
+        snr: 12.0,
+        packetsForwarded: 0,
+      };
+      return dynamicNode;
+    }
+
+    return undefined;
+  }, [selectedContactId, nodes]);
+
+  const otherContacts = useMemo(() => {
+    const list = [...nodes.filter((n) => n && !n.isSelf)];
+    if (activeContact && !list.some((c) => c.id === activeContact.id)) {
+      list.push(activeContact);
+    }
+    return list;
+  }, [nodes, activeContact]);
 
   const handleSelectContact = (id: string) => {
     setSelectedContactId(id);
@@ -148,6 +199,29 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
   const [isAddContactOpen, setIsAddContactOpen] = useState(false);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [contactProfileModalNode, setContactProfileModalNode] = useState<MeshNode | null>(null);
+  const [isEditingContactName, setIsEditingContactName] = useState(false);
+  const [editingContactNameValue, setEditingContactNameValue] = useState('');
+  const [favoriteContactIds, setFavoriteContactIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('lora_favorite_contacts_v1');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const toggleFavoriteContact = (nodeId: string) => {
+    setFavoriteContactIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(nodeId)) next.delete(nodeId);
+      else next.add(nodeId);
+      try {
+        localStorage.setItem('lora_favorite_contacts_v1', JSON.stringify(Array.from(next)));
+      } catch {}
+      return next;
+    });
+  };
+
   const [conversationsFilter, setConversationsFilter] = useState<'all' | 'favorites' | 'unread'>('all');
 
   // Swipe to delete & marked card options state
@@ -490,45 +564,6 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
         meshManager.addNode(dynamicNode);
       }
     }
-  }, [selectedContactId, nodes]);
-
-  // Purely compute activeContact with useMemo without side-effects
-  const activeContact: MeshNode | undefined = useMemo(() => {
-    if (!selectedContactId) return undefined;
-    const found = nodes.find((n) => n && n.id === selectedContactId);
-    if (found) return found;
-
-    // If selectedContactId starts with node_phone_, provide pure fallback representation
-    if (selectedContactId.startsWith('node_phone_')) {
-      const raw = selectedContactId.replace('node_phone_', '');
-      const formatted = formatPhoneNumber(raw) || raw;
-      const dynamicNode: MeshNode = {
-        id: selectedContactId,
-        name: formatted,
-        username: `tel.${raw}`,
-        callsign: `TEL-${raw.slice(-4)}`,
-        phoneNumber: raw,
-        avatarColor: '#18181b',
-        avatarInitials: raw.slice(0, 2),
-        role: 'CLIENT',
-        hardware: 'ESP32 DIY SX1262',
-        isOnline: true,
-        lastHeard: Date.now(),
-        batteryPct: 100,
-        batteryVoltage: 4.2,
-        gps: { lat: 38.72, lng: -9.14, alt: 50 },
-        x: 50,
-        y: 50,
-        antennaDbi: 3.0,
-        hopsAway: 1,
-        rssi: -45,
-        snr: 12.0,
-        packetsForwarded: 0,
-      };
-      return dynamicNode;
-    }
-
-    return undefined;
   }, [selectedContactId, nodes]);
 
   // Filter messages for current thread (ignoring internal system announcements)
@@ -1155,63 +1190,66 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
             <div className="h-16 px-4 flex items-center justify-between border-b border-[#EEEEEE] bg-white z-10 shrink-0">
               <div className="flex items-center gap-3 min-w-0">
                 <button
-                  onClick={handleBackToConversationsList}
-                  className="p-1.5 -ml-1 text-black hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer mr-1"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBackToConversationsList();
+                  }}
+                  className="p-1.5 -ml-1 text-black hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer mr-1 shrink-0"
                   title="Voltar às conversas"
                 >
                   <ArrowLeft className="w-6 h-6" />
                 </button>
 
                 <div
-                  onClick={() => !activeContact.isGroup && setContactProfileModalNode(activeContact)}
-                  className="relative cursor-pointer shrink-0"
-                  title="Ver perfil"
+                  onClick={() => setContactProfileModalNode(activeContact)}
+                  className="flex items-center gap-3 min-w-0 cursor-pointer group select-none"
+                  title="Ver detalhes do contacto"
                 >
-                  {activeContact.isGroup || activeContact.id === 'group-broadcast' ? (
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-black shadow-xs"
-                      style={{
-                        background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
-                      }}
-                    >
-                      CG
-                    </div>
-                  ) : (
-                    <div
-                      className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-white shadow-xs"
-                      style={{
-                        backgroundColor:
-                          activeContact.avatarColor === '#10b981'
-                            ? '#000000'
-                            : activeContact.avatarColor || '#000000',
-                      }}
-                    >
-                      {activeContact.avatarInitials ||
-                        (activeContact.name ? activeContact.name.slice(0, 2).toUpperCase() : 'C')}
-                    </div>
-                  )}
-                  {activeContact.isOnline && (
-                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#00B98B] border-2 border-white" />
-                  )}
-                </div>
-
-                <div
-                  onClick={() => !activeContact.isGroup && setContactProfileModalNode(activeContact)}
-                  className="min-w-0 cursor-pointer"
-                >
-                  <h2 className="text-base font-bold text-black leading-tight truncate hover:text-neutral-700 transition-colors">
-                    {activeContact.name}
-                  </h2>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    {activeContact.isGroup ? (
-                      <span className="text-[11px] text-[#666666] font-medium">Canal Geral LoRa</span>
+                  <div className="relative shrink-0">
+                    {activeContact.isGroup || activeContact.id === 'group-broadcast' ? (
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-black shadow-xs group-hover:scale-105 transition-transform"
+                        style={{
+                          background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                        }}
+                      >
+                        CG
+                      </div>
                     ) : (
-                      <span className="text-[11px] font-mono text-[#666666] font-medium flex items-center gap-1">
-                        <span>{formatPhoneNumber(activeContact.phoneNumber || getNodePhoneNumber(activeContact.id))}</span>
-                        <span className="text-neutral-400">•</span>
-                        <span className="text-[#00B98B]">Online</span>
-                      </span>
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs text-white shadow-xs group-hover:scale-105 transition-transform"
+                        style={{
+                          backgroundColor:
+                            activeContact.avatarColor === '#10b981'
+                              ? '#000000'
+                              : activeContact.avatarColor || '#000000',
+                        }}
+                      >
+                        {activeContact.avatarInitials ||
+                          (activeContact.name ? activeContact.name.slice(0, 2).toUpperCase() : 'C')}
+                      </div>
                     )}
+                    {activeContact.isOnline && (
+                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#00B98B] border-2 border-white" />
+                    )}
+                  </div>
+
+                  <div className="min-w-0">
+                    <h2 className="text-base font-bold text-black leading-tight truncate group-hover:text-neutral-700 transition-colors">
+                      {activeContact.name}
+                    </h2>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      {activeContact.isGroup ? (
+                        <span className="text-[11px] text-[#666666] font-medium">Canal Geral LoRa</span>
+                      ) : (
+                        <span className="text-[11px] font-mono text-[#666666] font-medium flex items-center gap-1">
+                          <span>{formatPhoneNumber(activeContact.phoneNumber || getNodePhoneNumber(activeContact.id))}</span>
+                          <span className="text-neutral-400">•</span>
+                          <span className="text-[#00B98B]">Online</span>
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1551,93 +1589,175 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
         )}
       </div>
 
-      {/* Contact Profile Details Modal (Image 6 design) */}
+      {/* Contact Profile Details View ("Perfil do contato" matching perfil-contato.svg) */}
       {contactProfileModalNode && (
-        <div className="fixed inset-0 z-50 bg-black text-white flex flex-col font-sans select-none animate-fadeIn">
-          {/* Top Bar with Back Arrow, Delete, Phone Call */}
-          <div className="h-16 px-5 flex items-center justify-between border-b border-slate-900 bg-black">
-            <button
-              onClick={() => setContactProfileModalNode(null)}
-              className="p-2 -ml-2 text-white hover:text-slate-300 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
-              title="Voltar à conversa"
-            >
-              <ArrowLeft className="w-6 h-6" />
-            </button>
-
-            <div className="flex items-center gap-2">
+        <div className="fixed inset-0 z-50 bg-white text-black flex flex-col font-sans select-none animate-fadeIn justify-between pb-8">
+          <div>
+            {/* Top Bar with Back Arrow, Delete, Star, Edit Pencil matching perfil-contato.svg */}
+            <div className="h-[58px] px-5 flex items-center justify-between border-b border-[#EEEEEE] bg-white">
               <button
                 onClick={() => {
-                  handleDeleteContact(contactProfileModalNode.id, contactProfileModalNode.name);
                   setContactProfileModalNode(null);
-                  handleSelectContact('');
+                  setIsEditingContactName(false);
                 }}
-                className="p-2 text-white hover:text-red-400 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
-                title="Eliminar contacto"
+                className="p-1 -ml-1 text-black hover:opacity-70 transition-opacity cursor-pointer"
+                title="Voltar ao chat"
               >
-                <Trash2 className="w-5 h-5" />
+                <svg width="24" height="24" viewBox="0 0 40 40" fill="none">
+                  <path d="M34 20 H18 M18 20 L25 13 M18 20 L25 27" stroke="#000000" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </button>
 
-              <button
-                onClick={() => {
-                  voiceCallService.startCall(
-                    contactProfileModalNode.id,
-                    contactProfileModalNode.name,
-                    contactProfileModalNode.callsign
-                  );
-                  setContactProfileModalNode(null);
-                }}
-                className="p-2 text-white hover:text-emerald-400 rounded-full hover:bg-slate-900 transition-colors cursor-pointer"
-                title="Fazer chamada de voz"
-              >
-                <Phone className="w-5 h-5" />
-              </button>
+              {!contactProfileModalNode.isGroup && contactProfileModalNode.id !== 'group-broadcast' && (
+                <div className="flex items-center gap-4">
+                  {/* Excluir (Lixeira matching SVG) */}
+                  <button
+                    onClick={() => {
+                      handleDeleteContact(contactProfileModalNode.id, contactProfileModalNode.name);
+                      setContactProfileModalNode(null);
+                      handleSelectContact('');
+                    }}
+                    className="p-1 text-black hover:text-red-500 transition-colors cursor-pointer"
+                    title="Excluir contato"
+                  >
+                    <svg width="22" height="22" viewBox="244 17 20 23" fill="none" stroke="#000000" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M248 23 H261" />
+                      <path d="M251 23 V37 H258 V23" />
+                      <path d="M250 20 H259" />
+                    </svg>
+                  </button>
+
+                  {/* Favoritar (Estrela matching SVG) */}
+                  <button
+                    onClick={() => toggleFavoriteContact(contactProfileModalNode.id)}
+                    className="p-1 text-black transition-colors cursor-pointer"
+                    title={favoriteContactIds.has(contactProfileModalNode.id) ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+                  >
+                    <svg width="24" height="24" viewBox="285 17 26 25" fill={favoriteContactIds.has(contactProfileModalNode.id) ? '#000000' : 'none'} stroke="#000000" strokeWidth="1.8" strokeLinejoin="round">
+                      <path d="M298 19 L301 26 L309 27 L303 32 L305 40 L298 36 L291 40 L293 32 L287 27 L295 26 Z" />
+                    </svg>
+                  </button>
+
+                  {/* Editar (Lápis matching SVG) */}
+                  <button
+                    onClick={() => {
+                      setEditingContactNameValue(contactProfileModalNode.name);
+                      setIsEditingContactName(!isEditingContactName);
+                    }}
+                    className="p-1 -mr-1 text-black hover:opacity-70 transition-opacity cursor-pointer"
+                    title="Editar contato"
+                  >
+                    <svg width="22" height="22" viewBox="326 17 23 23" fill="none" stroke="#000000" strokeWidth="1.8" strokeLinejoin="round">
+                      <path d="M333 37 L347 23 L343 19 L329 33 L328 38 Z M340 22 L344 26" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Contact Profile Details Body */}
+            <div className="flex flex-col items-center justify-center px-6 pt-10 text-center">
+              {/* Centered Large Circular Avatar (r=96 / 192px) matching perfil-contato.svg */}
+              <div className="relative mb-8">
+                <div
+                  className="w-48 h-48 rounded-full flex items-center justify-center font-semibold text-[62px] tracking-[-3px] text-black shadow-sm"
+                  style={{
+                    background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                  }}
+                >
+                  {contactProfileModalNode.isGroup || contactProfileModalNode.id === 'group-broadcast'
+                    ? 'CG'
+                    : contactProfileModalNode.avatarInitials || contactProfileModalNode.name.slice(0, 2).toUpperCase()}
+                </div>
+              </div>
+
+              {/* Contact Name (24px, font-weight 600) */}
+              {isEditingContactName ? (
+                <div className="flex items-center gap-2 mb-3">
+                  <input
+                    type="text"
+                    value={editingContactNameValue}
+                    onChange={(e) => setEditingContactNameValue(e.target.value)}
+                    autoFocus
+                    className="bg-neutral-100 border border-neutral-300 rounded-xl px-4 py-1.5 text-xl font-bold text-black text-center focus:outline-none focus:border-black"
+                  />
+                  <button
+                    onClick={() => {
+                      if (editingContactNameValue.trim()) {
+                        const updated = { ...contactProfileModalNode, name: editingContactNameValue.trim() };
+                        meshManager.addNode(updated);
+                        setContactProfileModalNode(updated);
+                      }
+                      setIsEditingContactName(false);
+                    }}
+                    className="p-2 rounded-xl bg-black text-white font-bold hover:bg-neutral-800 cursor-pointer"
+                  >
+                    <Check className="w-5 h-5" />
+                  </button>
+                </div>
+              ) : (
+                <h1 className="text-[24px] font-semibold text-black tracking-tight mb-2">
+                  {contactProfileModalNode.name}
+                </h1>
+              )}
+
+              {/* 8-Digit Phone Number (21px, font-weight 600, tracking-wide) */}
+              <p className="text-[21px] font-semibold tracking-wider text-black font-mono">
+                {formatPhoneNumber(
+                  contactProfileModalNode.phoneNumber || getNodePhoneNumber(contactProfileModalNode.id)
+                )}
+              </p>
+
+              {contactProfileModalNode.isGroup && (
+                <p className="text-xs text-[#777777] mt-3 max-w-xs mx-auto">
+                  Canal público aberto irradiado para todos os nós LoRa na frequência local.
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Profile Details Body matching Image 6 */}
-          <div className="flex-1 flex flex-col items-center justify-center px-6 py-8 text-center max-w-sm mx-auto w-full">
-            <div
-              className="w-48 h-48 sm:w-56 sm:h-56 rounded-full flex items-center justify-center font-bold text-6xl sm:text-7xl shadow-2xl mb-8 bg-[#18181b]"
-              style={{ backgroundColor: contactProfileModalNode.avatarColor || '#18181b' }}
+          {/* Two Prominent Action Buttons matching perfil-contato.svg (144x52, rx=26) */}
+          <div className="flex items-center justify-center gap-6 px-5 mt-10">
+            {/* Ligar: Black pill with phone icon */}
+            <button
+              onClick={() => {
+                const phone = contactProfileModalNode.phoneNumber || getNodePhoneNumber(contactProfileModalNode.id);
+                voiceCallService.startCall(
+                  contactProfileModalNode.id,
+                  contactProfileModalNode.name,
+                  contactProfileModalNode.callsign,
+                  phone,
+                  contactProfileModalNode
+                );
+                setContactProfileModalNode(null);
+              }}
+              className="w-[144px] h-[52px] rounded-[26px] bg-black text-white flex items-center justify-center hover:bg-neutral-800 active:scale-95 transition-all shadow-md cursor-pointer"
+              title="Fazer chamada de voz"
             >
-              {contactProfileModalNode.avatarInitials || contactProfileModalNode.name.slice(0, 2).toUpperCase()}
-            </div>
+              <svg width="26" height="26" viewBox="38 522 36 36" fill="none">
+                <path
+                  d="M40 527 C40 524.5 42.3 523 44.7 523.8 L50 526 L52.2 533 L48.3 535.7 C50.9 541 55.2 545.3 60.5 547.9 L63.2 544 L70.2 546.2 L72.4 551.4 C73.4 553.8 71.7 556 69.1 556 C53.9 555.1 41 542.3 40 527Z"
+                  fill="#FFFFFF"
+                />
+              </svg>
+            </button>
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">
-              {contactProfileModalNode.name}
-            </h1>
-
-            <p className="text-xl font-bold tracking-wider font-mono text-slate-200 mb-10">
-              {formatPhoneNumber(getNodePhoneNumber(contactProfileModalNode.id))}
-            </p>
-
-            {/* Action buttons matching user Image 6 */}
-            <div className="flex items-center justify-center gap-6 w-full max-w-xs">
-              <button
-                onClick={() => {
-                  voiceCallService.startCall(
-                    contactProfileModalNode.id,
-                    contactProfileModalNode.name,
-                    contactProfileModalNode.callsign
-                  );
-                  setContactProfileModalNode(null);
-                }}
-                className="w-36 py-3.5 bg-[#18181b] hover:bg-slate-900 border border-slate-700/80 active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg"
-                title="Fazer chamada"
-              >
-                <Phone className="w-5 h-5 text-white" />
-              </button>
-
-              <button
-                onClick={() => {
-                  setContactProfileModalNode(null);
-                }}
-                className="w-36 py-3.5 bg-transparent border-2 border-white hover:bg-white/10 active:scale-95 text-white rounded-full flex items-center justify-center transition-all cursor-pointer shadow-lg"
-                title="Voltar ao chat"
-              >
-                <MessageSquare className="w-5 h-5 text-white" />
-              </button>
-            </div>
+            {/* Mensagem: White pill with black stroke and message icon */}
+            <button
+              onClick={() => {
+                handleSelectContact(contactProfileModalNode.id);
+                setContactProfileModalNode(null);
+              }}
+              className="w-[144px] h-[52px] rounded-[26px] bg-white border border-[#000000] text-black flex items-center justify-center hover:bg-neutral-50 active:scale-95 transition-all shadow-sm cursor-pointer"
+              title="Voltar ao chat"
+            >
+              <svg width="26" height="26" viewBox="194 522 36 36" fill="none">
+                <path
+                  d="M198 528 H222 A3 3 0 0 1 225 531 V543 A3 3 0 0 1 222 546 H208 L198 554 V546 A3 3 0 0 1 195 543 V531 A3 3 0 0 1 198 528Z"
+                  fill="#000000"
+                />
+              </svg>
+            </button>
           </div>
         </div>
       )}

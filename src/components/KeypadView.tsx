@@ -50,14 +50,38 @@ export const KeypadView: React.FC<KeypadViewProps> = ({
   const [digits, setDigits] = useState<string>('');
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
 
+  // Helper to find a contact strictly by its exact phone number
+  const findTargetNode = (rawPhone: string): MeshNode | undefined => {
+    if (!rawPhone || rawPhone.length < 3) return undefined;
+
+    // Check against nodes list
+    const matched = nodes.find((n) => {
+      if (!n || n.isSelf) return false;
+      if (n.id === 'group-broadcast' || n.isGroup) {
+        return rawPhone === '41160000';
+      }
+      const directPhone = cleanPhoneNumber(n.phoneNumber);
+      const nodePhone = cleanPhoneNumber(getNodePhoneNumber(n.id));
+      return directPhone === rawPhone || nodePhone === rawPhone;
+    });
+    if (matched) return matched;
+
+    // Also check meshManager internal nodes
+    const mmNodes = meshManager.getNodes();
+    return mmNodes.find((n) => {
+      if (!n || n.isSelf) return false;
+      if (n.id === 'group-broadcast' || n.isGroup) {
+        return rawPhone === '41160000';
+      }
+      const directPhone = cleanPhoneNumber(n.phoneNumber);
+      const nodePhone = cleanPhoneNumber(getNodePhoneNumber(n.id));
+      return directPhone === rawPhone || nodePhone === rawPhone;
+    });
+  };
+
   // Find if typed digits match any known contact with exact number match
   const clean = cleanPhoneNumber(digits);
-  const matchedContact = nodes.find((n) => {
-    if (!n || n.isSelf || n.isGroup || n.id === 'group-broadcast') return false;
-    const directPhone = cleanPhoneNumber(n.phoneNumber);
-    const nodePhone = cleanPhoneNumber(getNodePhoneNumber(n.id));
-    return clean.length >= 3 && ((directPhone && directPhone === clean) || (nodePhone && nodePhone === clean));
-  });
+  const matchedContact = findTargetNode(clean);
 
   const handleDigitPress = (digit: string) => {
     setFeedbackMsg(null);
@@ -88,15 +112,10 @@ export const KeypadView: React.FC<KeypadViewProps> = ({
     }
 
     // Check if matched to a known real contact with EXACT phone match
-    const targetNode = nodes.find((n) => {
-      if (!n || n.isSelf || n.isGroup || n.id === 'group-broadcast') return false;
-      const directPhone = cleanPhoneNumber(n.phoneNumber);
-      const nodePhone = cleanPhoneNumber(getNodePhoneNumber(n.id));
-      return (directPhone && directPhone === raw) || (nodePhone && nodePhone === raw);
-    });
+    const targetNode = findTargetNode(raw);
 
     if (targetNode) {
-      const phone = targetNode.phoneNumber || getNodePhoneNumber(targetNode.id);
+      const phone = targetNode.phoneNumber || raw;
       voiceCallService.startCall(targetNode.id, targetNode.name, targetNode.callsign || targetNode.name, phone, targetNode);
     } else {
       // Start call with the exact number typed and persist node
@@ -137,12 +156,7 @@ export const KeypadView: React.FC<KeypadViewProps> = ({
     }
 
     // Check if matched to a known real contact with EXACT phone match
-    const targetNode = nodes.find((n) => {
-      if (!n || n.isSelf || n.isGroup || n.id === 'group-broadcast') return false;
-      const directPhone = cleanPhoneNumber(n.phoneNumber);
-      const nodePhone = cleanPhoneNumber(getNodePhoneNumber(n.id));
-      return (directPhone && directPhone === raw) || (nodePhone && nodePhone === raw);
-    });
+    const targetNode = findTargetNode(raw);
 
     if (targetNode) {
       onOpenChatWithNode(targetNode.id);

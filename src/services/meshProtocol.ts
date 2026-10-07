@@ -204,41 +204,122 @@ export class MeshNetworkManager {
       const storedContacts = localStorage.getItem(STORAGE_KEY_CONTACTS);
       if (storedContacts) {
         contacts = JSON.parse(storedContacts);
+        // Ensure eliminated mock contacts like node_peer_tg are filtered out
+        contacts = contacts.filter((c) => c && c.id !== 'node_peer_tg');
       }
     } catch (e) {
       console.warn('Error reading contacts from local storage:', e);
     }
 
     if (!contacts || contacts.length === 0) {
-      const defaultPeerTg: MeshNode = {
-        id: 'node_peer_tg',
-        name: 'tg',
-        username: 'tg',
-        callsign: 'TG-67',
-        phoneNumber: '41166788',
-        avatarColor: '#000000',
-        avatarInitials: 'TG',
+      const defaultPeerAndre: MeshNode = {
+        id: 'mock_andre',
+        name: 'André',
+        username: 'andre',
+        callsign: 'ANDRE-01',
+        phoneNumber: '41160001',
+        avatarColor: '#18181b',
+        avatarInitials: 'AN',
         bio: 'Operador LoRa',
         statusText: 'Online',
         hardware: 'ESP32 DIY SX1262',
         role: 'CLIENT',
-        batteryPct: 92,
-        batteryVoltage: 4.1,
-        gps: { lat: 38.722, lng: -9.138, alt: 52 },
-        x: 60,
-        y: 40,
+        batteryPct: 88,
+        batteryVoltage: 4.0,
+        gps: { lat: 38.72, lng: -9.14, alt: 50 },
+        x: 50,
+        y: 50,
         antennaDbi: 3.0,
         isOnline: true,
         lastHeard: Date.now(),
         hopsAway: 1,
-        rssi: -48,
+        rssi: -45,
         snr: 12.0,
         packetsForwarded: 0,
       };
-      contacts = [defaultPeerTg];
+
+      const defaultPeerHebo: MeshNode = {
+        id: 'mock_hebo_py',
+        name: 'Hebo Py',
+        username: 'hebo.py',
+        callsign: 'HEBO-02',
+        phoneNumber: '41160002',
+        avatarColor: '#18181b',
+        avatarInitials: 'HP',
+        bio: 'Operador LoRa',
+        statusText: 'Online',
+        hardware: 'ESP32 DIY SX1262',
+        role: 'CLIENT',
+        batteryPct: 95,
+        batteryVoltage: 4.15,
+        gps: { lat: 38.72, lng: -9.14, alt: 50 },
+        x: 50,
+        y: 50,
+        antennaDbi: 3.0,
+        isOnline: true,
+        lastHeard: Date.now(),
+        hopsAway: 1,
+        rssi: -42,
+        snr: 13.0,
+        packetsForwarded: 0,
+      };
+
+      const defaultPeerJosh: MeshNode = {
+        id: 'mock_josh',
+        name: 'Josh',
+        username: 'josh',
+        callsign: 'JOSH-03',
+        phoneNumber: '41160003',
+        avatarColor: '#18181b',
+        avatarInitials: 'JO',
+        bio: 'Operador LoRa',
+        statusText: 'Online',
+        hardware: 'ESP32 DIY SX1262',
+        role: 'CLIENT',
+        batteryPct: 76,
+        batteryVoltage: 3.9,
+        gps: { lat: 38.72, lng: -9.14, alt: 50 },
+        x: 50,
+        y: 50,
+        antennaDbi: 3.0,
+        isOnline: true,
+        lastHeard: Date.now(),
+        hopsAway: 1,
+        rssi: -50,
+        snr: 11.0,
+        packetsForwarded: 0,
+      };
+
+      const defaultPeerZox: MeshNode = {
+        id: 'mock_zox',
+        name: 'Zox',
+        username: 'zox',
+        callsign: 'ZOX-04',
+        phoneNumber: '41160004',
+        avatarColor: '#18181b',
+        avatarInitials: 'ZX',
+        bio: 'Operador LoRa',
+        statusText: 'Online',
+        hardware: 'ESP32 DIY SX1262',
+        role: 'CLIENT',
+        batteryPct: 82,
+        batteryVoltage: 4.02,
+        gps: { lat: 38.72, lng: -9.14, alt: 50 },
+        x: 50,
+        y: 50,
+        antennaDbi: 3.0,
+        isOnline: true,
+        lastHeard: Date.now(),
+        hopsAway: 1,
+        rssi: -46,
+        snr: 12.5,
+        packetsForwarded: 0,
+      };
+
+      contacts = [defaultPeerAndre, defaultPeerHebo, defaultPeerJosh, defaultPeerZox];
     }
 
-    this.nodes = [selfNode, broadcastGroupNode, ...contacts.filter((c) => c.id !== selfNode.id && c.id !== 'group-broadcast')];
+    this.nodes = [selfNode, broadcastGroupNode, ...contacts.filter((c) => c.id !== selfNode.id && c.id !== 'group-broadcast' && c.id !== 'node_peer_tg')];
 
     // 3. Load Packets
     try {
@@ -246,7 +327,13 @@ export class MeshNetworkManager {
       if (storedPackets) {
         const parsed = JSON.parse(storedPackets);
         this.packets = Array.isArray(parsed)
-          ? parsed.filter((p) => p && p.packetType !== 'NODE_ANNOUNCEMENT')
+          ? parsed.filter(
+              (p) =>
+                p &&
+                p.packetType !== 'NODE_ANNOUNCEMENT' &&
+                p.fromNodeId !== 'node_peer_tg' &&
+                p.toNodeId !== 'node_peer_tg'
+            )
           : [];
         this.packets.forEach((p) => {
           this.seenPacketIds.add(p.id);
@@ -870,22 +957,6 @@ export class MeshNetworkManager {
         snrDb: 9.5,
         pathTraveled: ['group-broadcast'],
         likedByMe: true,
-      },
-      {
-        id: 'pkt-seed-tg-oi',
-        timestamp: now - 1800 * 1000,
-        fromNodeId: 'node_peer_tg',
-        toNodeId: selfId,
-        channelId: 1,
-        hopLimit: 2,
-        hopStart: 2,
-        packetType: 'TEXT_MSG',
-        payloadText: 'oi',
-        encrypted: true,
-        airtimeMs: 80,
-        rssiDbm: -48,
-        snrDb: 12.0,
-        pathTraveled: ['node_peer_tg'],
       },
     ];
     this.savePacketsToStorage();
