@@ -268,30 +268,87 @@ export const VoiceCallModal: React.FC<VoiceCallModalProps> = ({ callState }) => 
           </div>
         </div>
 
-        {/* Avatar with concentric outer ring */}
+        {/* Avatar with dynamic voice activity wave rings */}
         <div className="relative flex items-center justify-center py-2">
-          <div className="w-32 h-32 rounded-full border border-[#F0F0F0] flex items-center justify-center">
+          {/* Animated voice wave glow ring */}
+          <div
+            className={`w-32 h-32 rounded-full border transition-all duration-200 flex items-center justify-center ${
+              callState.remoteVolume > 12
+                ? 'border-[#00B98B] ring-4 ring-emerald-400/20 scale-105'
+                : callState.localVolume > 12 && !callState.isMuted
+                ? 'border-amber-400 ring-4 ring-amber-400/20 scale-102'
+                : 'border-[#F0F0F0]'
+            }`}
+          >
             <div
-              className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-[32px] text-black shadow-lg"
+              className="w-24 h-24 rounded-full flex items-center justify-center font-bold text-[32px] text-black shadow-lg relative"
               style={{
                 background: 'linear-gradient(135deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
               }}
             >
               {(callState.peerName || 'OP').slice(0, 2).toUpperCase()}
+
+              {/* Little speaking beacon */}
+              {(callState.remoteVolume > 12 || (callState.localVolume > 12 && !callState.isMuted)) && (
+                <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-[#00B98B] border-2 border-white animate-pulse" />
+              )}
             </div>
           </div>
         </div>
 
-        {/* Signal quality box */}
-        <div className="h-[42px] rounded-[15px] border-[1.2px] border-black bg-white px-4 flex items-center justify-center gap-3">
-          <div className="flex items-end gap-1">
-            <span className="w-[2px] h-[6px] bg-black rounded-[1px]" />
-            <span className="w-[2px] h-[10px] bg-black rounded-[1px]" />
-            <span className="w-[2px] h-[14px] bg-black rounded-[1px]" />
-            <span className="w-[2px] h-[18px] bg-black rounded-[1px]" />
+        {/* Live Speech Activity & Signal box */}
+        <div className="h-[46px] rounded-[15px] border-[1.2px] border-black bg-white px-3 flex items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="flex items-end gap-1 shrink-0 h-4">
+              <span
+                className={`w-[2.5px] rounded-[1px] transition-all duration-100 ${
+                  callState.remoteVolume > 8 || callState.localVolume > 8
+                    ? 'h-4 bg-[#00B98B]'
+                    : 'h-1.5 bg-black'
+                }`}
+              />
+              <span
+                className={`w-[2.5px] rounded-[1px] transition-all duration-100 ${
+                  callState.remoteVolume > 20 || callState.localVolume > 20
+                    ? 'h-4 bg-[#00B98B]'
+                    : 'h-2.5 bg-black'
+                }`}
+              />
+              <span
+                className={`w-[2.5px] rounded-[1px] transition-all duration-100 ${
+                  callState.remoteVolume > 35 || callState.localVolume > 35
+                    ? 'h-4 bg-[#00B98B]'
+                    : 'h-3.5 bg-black'
+                }`}
+              />
+              <span
+                className={`w-[2.5px] rounded-[1px] transition-all duration-100 ${
+                  callState.remoteVolume > 50 || callState.localVolume > 50
+                    ? 'h-4 bg-[#00B98B]'
+                    : 'h-4 bg-black'
+                }`}
+              />
+            </div>
+
+            <span className="text-[12px] text-black font-medium truncate">
+              {callState.remoteVolume > 12 ? (
+                <span className="text-[#00B98B] font-semibold">
+                  A ouvir {callState.peerName}...
+                </span>
+              ) : callState.localVolume > 12 && !callState.isMuted ? (
+                <span className="text-neutral-900 font-semibold">
+                  A transmitir o seu microfone...
+                </span>
+              ) : (
+                <span className="text-[#777777]">
+                  Voz P2P Direta · Sem gastar dados
+                </span>
+              )}
+            </span>
           </div>
-          <span className="text-[13px] text-[#777777]">
-            Sinal calibrado para qualidade cristalina
+
+          <span className="text-[10px] font-mono font-bold bg-[#F0F0F0] text-black px-2 py-0.5 rounded-full shrink-0">
+            HD 48kHz
           </span>
         </div>
 

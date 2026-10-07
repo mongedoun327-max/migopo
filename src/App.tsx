@@ -39,6 +39,7 @@ import { WelcomeOnboardingModal } from './components/WelcomeOnboardingModal';
 import { DialpadIcon } from './components/DialpadIcon';
 import { ContactsIcon } from './components/ContactsIcon';
 import { ConversasIcon } from './components/ConversasIcon';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<string>('direct');
@@ -71,7 +72,7 @@ export default function App() {
       setNodes(newNodes);
       const selfNode = newNodes.find((n) => n?.isSelf) || newNodes[0];
       if (selfNode) {
-        voiceCallService.init(selfNode.id, selfNode.name);
+        voiceCallService.init(selfNode.id, selfNode.name, selfNode.phoneNumber);
       }
     });
     const unsubPackets = meshManager.subscribePackets(setPackets);
@@ -81,7 +82,7 @@ export default function App() {
     // Initial init
     const initialSelf = meshManager.getNodes().find((n) => n?.isSelf);
     if (initialSelf) {
-      voiceCallService.init(initialSelf.id, initialSelf.name);
+      voiceCallService.init(initialSelf.id, initialSelf.name, initialSelf.phoneNumber);
     }
 
     return () => {
@@ -169,6 +170,9 @@ export default function App() {
         activeTab === 'direct' && !selectedDirectNodeId ? 'pb-16' : 'pb-0'
       }`}
     >
+      {/* PWA In-App Install Prompt Banner */}
+      <PWAInstallBanner />
+
       {/* SOS Alert Banner */}
       {sosSentBanner && (
         <div className="bg-red-600 text-white px-4 py-2.5 text-xs font-bold flex items-center justify-between shadow-lg shadow-red-950/60 animate-bounce">

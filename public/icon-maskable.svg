@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="brandGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFBB7D"/>
+      <stop offset="48%" stop-color="#EFD1BE"/>
+      <stop offset="100%" stop-color="#B3BDDC"/>
+    </linearGradient>
+    <linearGradient id="darkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F172A"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed background for maskable icon -->
+  <rect width="512" height="512" fill="url(#darkBg)"/>
+
+  <!-- Centered safe zone content (within inner 80%, radius 180) -->
+  <circle cx="256" cy="256" r="140" fill="none" stroke="url(#brandGradient)" stroke-width="2.5" opacity="0.4"/>
+  <circle cx="256" cy="256" r="115" fill="none" stroke="url(#brandGradient)" stroke-width="3" opacity="0.6"/>
+
+  <!-- Glowing Emblem Circle -->
+  <circle cx="256" cy="256" r="85" fill="url(#brandGradient)"/>
+
+  <!-- Tactical Communicator Bubble inside safe zone -->
+  <g fill="#020617">
+    <path d="M204 198
+             H308
+             A20 20 0 0 1 328 218
+             V284
+             A20 20 0 0 1 308 304
+             H252
+             L208 334
+             V304
+             H204
+             A20 20 0 0 1 184 284
+             V218
+             A20 20 0 0 1 204 198Z"/>
+  </g>
+
+  <!-- Soundwave / Antenna Cross -->
+  <g stroke="#FFFFFF" stroke-width="7.5" stroke-linecap="round">
+    <line x1="256" y1="224" x2="256" y2="278"/>
+    <line x1="228" y1="251" x2="284" y2="251"/>
+  </g>
+</svg>

@@ -1,3 +1,6 @@
+// Clean tsx injected __dirname so ESM plugins like vite-plugin-pwa resolve their own package.json correctly
+delete (globalThis as any).__dirname;
+
 import express from 'express';
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -31,6 +34,7 @@ interface ServerNode {
   rssi: number;
   snr: number;
   packetsForwarded: number;
+  phoneNumber?: string;
   isGroup?: boolean;
 }
 
@@ -97,7 +101,54 @@ async function startServer() {
   const assignedPhoneMap = new Map<string, string>(); // nodeId -> 4116XXXX
 
   const server = http.createServer(app);
-  const wss = new WebSocketServer({ server, path: '/ws/call' });
+  const wss = new WebSocketServer({ noServer: true });
+  const hmrDummyWss = new WebSocketServer({
+    noServer: true,
+    handleProtocols: (protocols) => {
+      // Chrome/Safari expects the server to echo back the requested protocol (e.g. 'vite-hmr')
+      for (const p of protocols) {
+        return p;
+      }
+      return false;
+    },
+  });
+
+  hmrDummyWss.on('connection', (ws: WebSocket) => {
+    // Keep alive and acknowledge any Vite client pings
+    ws.on('message', (data) => {
+      try {
+        const msg = JSON.parse(data.toString());
+        if (msg.type === 'ping') {
+          ws.send(JSON.stringify({ type: 'pong' }));
+        }
+      } catch {}
+    });
+
+    try {
+      ws.send(JSON.stringify({ type: 'connected' }));
+    } catch {}
+  });
+
+  server.on('upgrade', (request, socket, head) => {
+    let pathname = '';
+    try {
+      pathname = new URL(request.url || '', `http://${request.headers.host || 'localhost'}`).pathname;
+    } catch {
+      pathname = request.url || '';
+    }
+
+    if (pathname === '/ws/call') {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit('connection', ws, request);
+      });
+    } else {
+      // Gracefully accept Vite HMR and any fallback WebSocket connections
+      // This ensures the browser's WebSocket fires 'open' and prevents any "WebSocket closed without opened" errors
+      hmrDummyWss.handleUpgrade(request, socket, head, (ws) => {
+        hmrDummyWss.emit('connection', ws, request);
+      });
+    }
+  });
 
   wss.on('connection', (ws: WebSocket, req) => {
     let clientNodeId: string | null = null;
@@ -116,6 +167,36 @@ async function startServer() {
       wsClients.get(clientNodeId)!.add(ws);
     }
 
+    // Helper to find recipient sockets by nodeId or 8-digit phone number
+    const resolveClientSockets = (targetIdOrPhone: string): Set<WebSocket> => {
+      if (!targetIdOrPhone) return new Set();
+      const direct = wsClients.get(targetIdOrPhone);
+      if (direct && direct.size > 0) return direct;
+
+      const cleanTarget = targetIdOrPhone.replace(/\D/g, '');
+      const results = new Set<WebSocket>();
+
+      // 1. Match by assigned 4116 phone number
+      for (const [nodeId, phone] of assignedPhoneMap.entries()) {
+        const cleanAssigned = phone.replace(/\D/g, '');
+        if (cleanAssigned && (cleanAssigned === cleanTarget || targetIdOrPhone.includes(cleanAssigned))) {
+          const socks = wsClients.get(nodeId);
+          if (socks) socks.forEach((s) => results.add(s));
+        }
+      }
+
+      // 2. Match by registeredNodes phone number
+      for (const node of registeredNodes) {
+        const nodePhone = (node.phoneNumber || '').replace(/\D/g, '');
+        if (nodePhone && (nodePhone === cleanTarget || targetIdOrPhone.includes(nodePhone))) {
+          const socks = wsClients.get(node.id);
+          if (socks) socks.forEach((s) => results.add(s));
+        }
+      }
+
+      return results;
+    };
+
     ws.on('message', (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
@@ -129,6 +210,10 @@ async function startServer() {
               wsClients.set(registeredId, new Set());
             }
             wsClients.get(registeredId)!.add(ws);
+
+            if (msg.phoneNumber) {
+              assignedPhoneMap.set(registeredId, msg.phoneNumber);
+            }
           }
           return;
         }
@@ -146,9 +231,9 @@ async function startServer() {
           callSessions.set(callId, session);
           pendingOffers.set(targetNodeId, msg);
 
-          // Broadcast to target's connected sockets
-          const targetSockets = wsClients.get(targetNodeId);
-          if (targetSockets && targetSockets.size > 0) {
+          // Broadcast to target's connected sockets (by nodeId or phone)
+          const targetSockets = resolveClientSockets(targetNodeId);
+          if (targetSockets.size > 0) {
             const payload = JSON.stringify(msg);
             targetSockets.forEach((s) => {
               if (s.readyState === WebSocket.OPEN) s.send(payload);
@@ -166,8 +251,8 @@ async function startServer() {
           }
           pendingOffers.delete(targetNodeId);
 
-          const callerSockets = wsClients.get(callerNodeId);
-          if (callerSockets) {
+          const callerSockets = resolveClientSockets(callerNodeId);
+          if (callerSockets.size > 0) {
             const payload = JSON.stringify(msg);
             callerSockets.forEach((s) => {
               if (s.readyState === WebSocket.OPEN) s.send(payload);
@@ -189,12 +274,10 @@ async function startServer() {
           const payload = JSON.stringify(msg);
           [callerNodeId, targetNodeId].forEach((id) => {
             if (!id) return;
-            const socks = wsClients.get(id);
-            if (socks) {
-              socks.forEach((s) => {
-                if (s.readyState === WebSocket.OPEN) s.send(payload);
-              });
-            }
+            const socks = resolveClientSockets(id);
+            socks.forEach((s) => {
+              if (s.readyState === WebSocket.OPEN) s.send(payload);
+            });
           });
           return;
         }
@@ -216,8 +299,8 @@ async function startServer() {
           }
 
           // Ultra-low latency direct forward to target
-          const targetSockets = wsClients.get(toNodeId);
-          if (targetSockets) {
+          const targetSockets = resolveClientSockets(toNodeId);
+          if (targetSockets.size > 0) {
             const payload = JSON.stringify(msg);
             targetSockets.forEach((s) => {
               if (s.readyState === WebSocket.OPEN) s.send(payload);
@@ -228,8 +311,8 @@ async function startServer() {
 
         if (msg.type === 'WEBRTC_SIGNAL') {
           const { toNodeId } = msg;
-          const targetSockets = wsClients.get(toNodeId);
-          if (targetSockets) {
+          const targetSockets = resolveClientSockets(toNodeId);
+          if (targetSockets.size > 0) {
             const payload = JSON.stringify(msg);
             targetSockets.forEach((s) => {
               if (s.readyState === WebSocket.OPEN) s.send(payload);
@@ -473,7 +556,12 @@ async function startServer() {
   // Vite dev middleware vs static build
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: {
+          clientPort: 443,
+        },
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);

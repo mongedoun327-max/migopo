@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { ArrowLeft, ChevronDown, ChevronUp, Map, Cpu, Bluetooth, Globe, Zap, Layers, Radio } from 'lucide-react';
+import { ArrowLeft, ChevronDown, ChevronUp, Map, Cpu, Bluetooth, Globe, Zap, Layers, Radio, Download, Smartphone, Share, PlusSquare, X, CheckCircle2 } from 'lucide-react';
 import { BleDeviceStatus } from '../types/mesh';
 import { bleBridge } from '../services/bleBridge';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,8 +21,18 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [selectedRegion, setSelectedRegion] = useState('868MHz');
   const [activeProfile, setActiveProfile] = useState<'balanced' | 'long_range' | 'fast'>('balanced');
   const [isConnecting, setIsConnecting] = useState(false);
+  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  const [showPwaGuide, setShowPwaGuide] = useState(false);
 
   if (!isOpen) return null;
+
+  const handleInstallApp = async () => {
+    if (isInstallable) {
+      await install();
+    } else {
+      setShowPwaGuide(true);
+    }
+  };
 
   const handleConnectBle = async () => {
     setIsConnecting(true);
@@ -243,8 +254,144 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 </div>
               )}
             </div>
+
+            {/* Divider below item 2 */}
+            <div className="border-b border-[#EEEEEE]" />
+
+            {/* Item 3: Instalar no Dispositivo (PWA) */}
+            <div>
+              <button
+                onClick={handleInstallApp}
+                className="w-full text-left flex items-center justify-between group cursor-pointer"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Vertical bar */}
+                  <div
+                    className="w-[5px] h-[54px] rounded-[2.5px] shrink-0"
+                    style={{
+                      background: 'linear-gradient(180deg, #FFBB7D 0%, #EFD1BE 48%, #B3BDDC 100%)',
+                    }}
+                  />
+                  <div>
+                    <span className="text-[21px] font-semibold text-black tracking-tight block">
+                      Instalar no Dispositivo
+                    </span>
+                    <span className="text-xs text-[#777777]">
+                      {isInstalled
+                        ? 'Aplicação já instalada no ecrã principal'
+                        : isInstallable
+                        ? 'Toque para instalar diretamente (PWA)'
+                        : 'Instalar no telemóvel ou computador'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="p-2 flex items-center gap-2">
+                  {isInstalled ? (
+                    <CheckCircle2 className="w-5 h-5 text-[#00B98B]" />
+                  ) : (
+                    <div className="w-9 h-9 rounded-full bg-black text-white flex items-center justify-center">
+                      <Download className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              </button>
+
+              {/* Divider below item 3 */}
+              <div className="mt-7 border-b border-[#EEEEEE]" />
+            </div>
           </div>
         </div>
+
+        {/* PWA Guided Installation Dialog */}
+        {showPwaGuide && (
+          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl text-black">
+              <div className="flex items-center justify-between pb-3 border-b border-[#EEEEEE]">
+                <div className="flex items-center gap-2">
+                  <Smartphone className="w-5 h-5 text-black" />
+                  <h3 className="font-bold text-base text-black">Instalar no Dispositivo</h3>
+                </div>
+                <button
+                  onClick={() => setShowPwaGuide(false)}
+                  className="text-[#777777] hover:text-black p-1 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {isIOS ? (
+                <div className="space-y-3 text-xs leading-relaxed text-[#555555]">
+                  <p>
+                    Para instalar no seu <strong>iPhone ou iPad</strong>:
+                  </p>
+                  <ol className="space-y-2.5 bg-[#FAFAFA] border border-[#EEEEEE] p-3.5 rounded-xl font-medium text-black">
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                        1
+                      </span>
+                      <span>
+                        Toque no botão de <strong>Partilhar</strong>{' '}
+                        <Share className="w-3.5 h-3.5 inline mx-1 text-blue-600" /> na barra inferior do Safari.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                        2
+                      </span>
+                      <span>
+                        Role para baixo e selecione{' '}
+                        <strong>"Adicionar ao ecrã principal"</strong>{' '}
+                        <PlusSquare className="w-3.5 h-3.5 inline mx-1 text-emerald-600" />.
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                        3
+                      </span>
+                      <span>
+                        Toque em <strong>Adicionar</strong> no canto superior direito.
+                      </span>
+                    </li>
+                  </ol>
+                </div>
+              ) : (
+                <div className="space-y-3 text-xs leading-relaxed text-[#555555]">
+                  <p>
+                    Para instalar no seu navegador:
+                  </p>
+                  <ol className="space-y-2.5 bg-[#FAFAFA] border border-[#EEEEEE] p-3.5 rounded-xl font-medium text-black">
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                        1
+                      </span>
+                      <span>
+                        Abra o menu do navegador (três pontos <strong>⋮</strong>).
+                      </span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="w-5 h-5 rounded-full bg-black text-white flex items-center justify-center text-[11px] font-bold shrink-0">
+                        2
+                      </span>
+                      <span>
+                        Selecione <strong>"Instalar aplicação"</strong> ou <strong>"Adicionar ao ecrã principal"</strong>.
+                      </span>
+                    </li>
+                  </ol>
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  onClick={() => setShowPwaGuide(false)}
+                  className="w-full py-2.5 bg-black hover:bg-neutral-800 text-white font-medium text-xs rounded-xl transition-colors cursor-pointer"
+                >
+                  Entendido
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
