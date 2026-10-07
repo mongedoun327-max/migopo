@@ -1237,14 +1237,6 @@ export const InstagramDirectView: React.FC<InstagramDirectViewProps> = ({
                 )}
 
                 <button
-                  onClick={handleSendLocation}
-                  className="p-2 text-black hover:text-sky-600 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
-                  title="Partilhar localização GPS"
-                >
-                  <MapPin className="w-5 h-5" />
-                </button>
-
-                <button
                   onClick={() => setIsChatMenuOpen(!isChatMenuOpen)}
                   className="p-2 text-black hover:text-neutral-700 rounded-full hover:bg-neutral-100 transition-colors cursor-pointer"
                   title="Mais opções da conversa"

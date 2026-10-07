@@ -100,6 +100,46 @@ async function startServer() {
   let nextPhoneSequence = 1;
   const assignedPhoneMap = new Map<string, string>(); // nodeId -> 4116XXXX
 
+  const findPendingOfferForNode = (nodeIdOrPhone: string): any => {
+    if (!nodeIdOrPhone) return null;
+    if (pendingOffers.has(nodeIdOrPhone)) return pendingOffers.get(nodeIdOrPhone);
+    const cleanQuery = nodeIdOrPhone.replace(/\D/g, '');
+    for (const [targetKey, offer] of pendingOffers.entries()) {
+      if (targetKey === nodeIdOrPhone) return offer;
+      const cleanTarget = targetKey.replace(/\D/g, '');
+      if (cleanQuery && (cleanQuery === cleanTarget || targetKey.includes(cleanQuery))) {
+        return offer;
+      }
+      const targetPhone = assignedPhoneMap.get(targetKey) || registeredNodes.find((n) => n.id === targetKey)?.phoneNumber;
+      const cleanTargetPhone = (targetPhone || '').replace(/\D/g, '');
+      if (cleanQuery && cleanTargetPhone === cleanQuery) {
+        return offer;
+      }
+      const myPhone = assignedPhoneMap.get(nodeIdOrPhone) || registeredNodes.find((n) => n.id === nodeIdOrPhone)?.phoneNumber;
+      const cleanMyPhone = (myPhone || '').replace(/\D/g, '');
+      if (cleanMyPhone && (cleanMyPhone === cleanTarget || targetKey.includes(cleanMyPhone))) {
+        return offer;
+      }
+    }
+    return null;
+  };
+
+  const deletePendingOfferForNode = (nodeIdOrPhone: string): void => {
+    if (!nodeIdOrPhone) return;
+    pendingOffers.delete(nodeIdOrPhone);
+    const cleanQuery = nodeIdOrPhone.replace(/\D/g, '');
+    for (const [targetKey, offer] of Array.from(pendingOffers.entries())) {
+      if (targetKey === nodeIdOrPhone || offer.targetNodeId === nodeIdOrPhone || offer.callerNodeId === nodeIdOrPhone) {
+        pendingOffers.delete(targetKey);
+        continue;
+      }
+      const cleanTarget = targetKey.replace(/\D/g, '');
+      if (cleanQuery && (cleanQuery === cleanTarget || targetKey.includes(cleanQuery))) {
+        pendingOffers.delete(targetKey);
+      }
+    }
+  };
+
   const server = http.createServer(app);
   const wss = new WebSocketServer({ noServer: true });
   const hmrDummyWss = new WebSocketServer({
@@ -249,7 +289,7 @@ async function startServer() {
             session.status = 'CONNECTED';
             session.connectedAt = Date.now();
           }
-          pendingOffers.delete(targetNodeId);
+          deletePendingOfferForNode(targetNodeId);
 
           const callerSockets = resolveClientSockets(callerNodeId);
           if (callerSockets.size > 0) {
@@ -268,7 +308,8 @@ async function startServer() {
             session.status = msg.type === 'CALL_REJECT' ? 'REJECTED' : 'ENDED';
             session.endedAt = Date.now();
           }
-          pendingOffers.delete(targetNodeId);
+          deletePendingOfferForNode(targetNodeId);
+          if (callerNodeId) deletePendingOfferForNode(callerNodeId);
 
           // Notify both caller and target
           const payload = JSON.stringify(msg);
@@ -487,7 +528,7 @@ async function startServer() {
   app.get('/api/mesh/calls/pending', (req, res) => {
     const nodeId = req.query.nodeId as string;
     if (!nodeId) return res.json({ offer: null });
-    const offer = pendingOffers.get(nodeId);
+    const offer = findPendingOfferForNode(nodeId);
     res.json({ offer: offer || null });
   });
 
@@ -498,7 +539,7 @@ async function startServer() {
       session.status = 'CONNECTED';
       session.connectedAt = Date.now();
     }
-    pendingOffers.delete(targetNodeId);
+    if (targetNodeId) deletePendingOfferForNode(targetNodeId);
     res.json({ success: true, session });
   });
 
@@ -509,7 +550,7 @@ async function startServer() {
       session.status = 'REJECTED';
       session.endedAt = Date.now();
     }
-    pendingOffers.delete(targetNodeId);
+    if (targetNodeId) deletePendingOfferForNode(targetNodeId);
     res.json({ success: true, session });
   });
 
@@ -520,7 +561,7 @@ async function startServer() {
       session.status = 'ENDED';
       session.endedAt = Date.now();
     }
-    if (targetNodeId) pendingOffers.delete(targetNodeId);
+    if (targetNodeId) deletePendingOfferForNode(targetNodeId);
     res.json({ success: true });
   });
 
